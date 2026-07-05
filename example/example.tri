@@ -1,0 +1,62 @@
+// Global variable declaration evaluated at compile time or initialization
+var foo = 28 + 43 * 22 - 2;
+
+// Main entry point function
+pub fn main (void) i32 {
+  // Local variable declarations with type annotations
+  a : i32 = 1452;
+  b : i32 = 2435;
+  c : i32 = 0;
+  
+  // Function call example
+  c = add(a, b);
+
+  // Do block example (executes an isolated block of code)
+  do {
+    a = a - 1
+  };
+
+  // If, Else If, Else control flow
+  if a > b {
+    c = a;
+  } else if a == b {
+    c = 0;
+  } else {
+    c = b;
+  };
+
+  // While loop example that continues as long as the condition is true
+  while (c < 100) {
+    ++c;
+  }
+
+  // Labeled loop example demonstrating how to break out of a specific scope
+  // Note: loop can attach to do, if, and functions.
+  @my_loop do {
+    ++c;
+    if c > 200 break @my_loop;
+  } loop;
+
+  // Switch statement example for pattern matching
+  switch c {
+    1 { c = 10; },
+    2 { c = 20; },
+    _ { c = 30; } // _ denotes the default fallback case
+  }
+
+  // Array declaration and initialization
+  ary : var [i32] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9};
+  
+  // For loop iterating over the array by a step of 1
+  for index, value in ary by 1 {
+    ary[index] = value; // reassigns the same value, changes nothing
+  }
+
+  // Return the final result to the caller
+  return c;
+}
+
+// function declaration demonstrating parameters and return types
+fn add (a : i32, b : i32) i32 {
+  return a + b;
+}

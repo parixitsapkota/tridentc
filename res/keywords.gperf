@@ -1,0 +1,13 @@
+%{
+#include <string.h>
+#include "trident.h"
+%}
+
+struct Keyword {
+  const char *name;
+  int token_kind;
+};
+
+%%
+fn  0
+%%
