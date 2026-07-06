@@ -3,11 +3,14 @@
 #include "trident.h"
 %}
 
+%struct-type
 struct Keyword {
   const char *name;
   int token_kind;
 };
 
 %%
-fn  0
+fn,      FUNCTION
+pub,     PUBLIC
+return,  RETURN
 %%
