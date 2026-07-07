@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "keywords.h"
 #include "trident.h"
@@ -28,7 +29,6 @@ Lexer *init_lexer(const char *file, const char *buffer, size_t buf_len) {
   l->i = 0;
   l->ln = 1;
   l->cn = 1;
-  l->string = init_arena(buf_len);
   l->tokens = init_arena(sizeof(Token) * TOKENS_STORE);
   // Temp vars.
   l->t_token = NULL;
@@ -142,7 +142,13 @@ void lexer(Lexer *l) {
 }
 
 void free_lexer(Lexer *l) {
-  free_arena(l->string);
+  Token *tok = l->tok_head->next;
+  while (tok != NULL) {
+    if (tok->lexeme) {
+      free((char *)tok->lexeme);
+    }
+    tok = tok->next;
+  }
   free_arena(l->tokens);
   free(l);
 }
@@ -305,6 +311,7 @@ static char *get_num(Lexer *l, TokenKind *kind, bool (*func)(char)) {
   return substr(l->buffer, start, l->i);
 }
 
+// TODO: report error on malformed digits.
 char *get_digit(Lexer *l, TokenKind *kind) {
   if (peak(l, 0) == '0' && peak(l, 1) == 'b') {
     return get_binary(l, kind);

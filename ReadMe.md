@@ -2,7 +2,7 @@
 An compiler for the Trident language.
 
 ## Build & Run
-- Build Requirements : `clang-format clang make gperf`
+- Build Requirements : `clang-format clang make gperf nasm`
 ```bash
 make MODE=release
 ```

@@ -1,10 +1,14 @@
 # Editor generated
-.cache
-.idea
-.vscode
-.zed
+.cache/
+.idea/
+.vscode/
+.zed/
 
 # Build generated
 build/
 src/keywords.h
 trident
+
+# Project generated
+asm/
+a.out

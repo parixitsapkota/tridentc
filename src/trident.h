@@ -5,6 +5,9 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "ast.h"
+#include "token.h"
+
 /// Reads the given file and returns it as a `char *`.
 /// also sets bytes to number of bytes red if not `NULL`.
 char *read_file(FILE *file, size_t *bytes);
@@ -50,57 +53,6 @@ void arena_reset(__arena__ *arena);
 /// Frees the entire region chain and the arena itself.
 void free_arena(__arena__ *arena);
 
-// Token Kinds
-typedef enum {
-  // Misc Tokens
-  UNKNOWN = 0,
-  END_OF_TOKEN,
-
-  // Identifier & Literals
-  IDENTIFIER,
-  INT,
-  FLOAT,
-  STRING,
-  CHARACTER,
-  LABLE,
-
-  // Keywords
-  RETURN,
-  FUNCTION,
-  PUBLIC,
-
-  // Seperator
-  O_BRACE,   // `{`
-  C_BRACE,   // `}`
-  O_PREN,    // `(`
-  C_PREN,    // `)`
-  O_BRACKET, // `[`
-  C_BRACKET, // `]`
-  SEMICOLON, // `;`
-  // Operator
-  COMMA,  // `,`
-  DOT,    // `.`
-  ADD,    // `+`
-  SUB,    // `-`
-  MUL,    // `*`
-  DEV,    // `/`
-  MOD,    // `%`
-  ASSIGN, // `=`
-
-} TokenKind;
-
-// Token Defination
-typedef struct Token {
-  // Value
-  TokenKind kind;
-  const char *lexeme;
-  // Position
-  size_t ln; // line number;
-  size_t cn; // comume number;
-  // Next Token
-  struct Token *next;
-} Token;
-
 // Lexer Structure
 typedef struct {
   // buffer file name
@@ -112,8 +64,6 @@ typedef struct {
   size_t i;  // index
   size_t ln; // line number
   size_t cn; // colume number
-  // String store.
-  Arena *string;
   // Token List
   Arena *tokens;
   Token *tok_head;
@@ -130,5 +80,42 @@ Lexer *init_lexer(const char *file, const char *buffer, size_t buf_len);
 void lexer(Lexer *l);
 /// Frees the allocated memory in the lexing context.
 void free_lexer(Lexer *l);
+
+// Parser Structure
+typedef struct {
+  Lexer *l;
+  // Position
+  size_t i; // index
+  // Ast store
+  Arena *ast;
+  AstNode *ast_head;
+  // Helper/Temp vars
+  Token *tok;
+  AstNode *t_node;
+} Parser;
+
+/// Returns a parser context based on given lexing context.
+Parser *init_parser(Lexer *l);
+/// parses based on the given lexer context and mutates the parser state accordingly.
+void parser(Parser *p);
+/// Frees the allocated memory in the Parsing context.
+void free_parser(Parser *p);
+
+// Codegen Structure
+typedef struct {
+  Parser *p;
+  // file store
+  const char *file_path;
+  FILE *file;
+  // Helper/Temp vars
+  AstNode *t_node;
+} Cgen;
+
+/// Returns a Cgen context based on given Parser context.
+Cgen *init_cgen(Parser *p, const char *file_path);
+/// generates asm based on the given context and mutates the cgen state accordingly.
+void cgen(Cgen *c);
+/// Frees the allocated memory in the cgen context.
+void free_cgen(Cgen *c);
 
 #endif // _TRIDENT_H_

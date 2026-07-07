@@ -53,7 +53,7 @@ $(BUILD)/%.o: src/%.c
 # Clean build artifacts
 clean:
 	@echo "$(COLOR_BLUE)[-] Cleaning build artifacts...$(COLOR_RESET)"
-	@rm -rf build src/keywords.h $(PROJECT)
+	@rm -rf build/ asm/ src/keywords.h a.out $(PROJECT)
 
 # Format sourcefile
 format:

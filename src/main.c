@@ -23,19 +23,25 @@ int main(int argc, char *argv[]) {
 
   Lexer *l = init_lexer(file_path, buffer, buff_len);
   lexer(l);
-
-  Token *tok = l->tok_head->next;
-  while (tok != NULL) {
-    if (tok->lexeme) {
-      printf("Kind: %-3d Lexeme: %s\n", tok->kind, tok->lexeme);
-      free((char *)tok->lexeme);
-    }
-    tok = tok->next;
-  }
-
-  free_lexer(l);
-
   free(buffer);
+
+  Parser *p = init_parser(l);
+  parser(p);
+
+  const char *out_file_path = "asm/out.asm";
+  Cgen *c = init_cgen(p, out_file_path);
+  cgen(c);
+  free_parser(p);
+  free_lexer(l);
+  free_cgen(c);
+
+  static char cmd[1024];
+
+  system("mkdir -p asm/");
+  sprintf(cmd, "nasm -f elf64 %s -o %s.o", out_file_path, out_file_path);
+  system(cmd);
+  sprintf(cmd, "ld -o a.out %s.o", out_file_path);
+  system(cmd);
 
   return 0;
 }
