@@ -28,16 +28,17 @@ int main(int argc, char *argv[]) {
   Parser *p = init_parser(l);
   parser(p);
 
+  system("mkdir -p asm/");
   const char *out_file_path = "asm/out.asm";
+
   Cgen *c = init_cgen(p, out_file_path);
   cgen(c);
+
   free_parser(p);
   free_lexer(l);
   free_cgen(c);
 
   static char cmd[1024];
-
-  system("mkdir -p asm/");
   sprintf(cmd, "nasm -f elf64 %s -o %s.o", out_file_path, out_file_path);
   system(cmd);
   sprintf(cmd, "ld -o a.out %s.o", out_file_path);

@@ -107,6 +107,8 @@ typedef struct {
   // file store
   const char *file_path;
   FILE *file;
+  // Allocation counter
+  size_t alloc_c; // Expr stack allocation count;
   // Helper/Temp vars
   AstNode *t_node;
 } Cgen;

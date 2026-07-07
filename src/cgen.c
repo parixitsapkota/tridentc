@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "ast.h"
 #include "trident.h"
 
 Cgen *init_cgen(Parser *p, const char *file_path) {
@@ -13,11 +12,47 @@ Cgen *init_cgen(Parser *p, const char *file_path) {
     fprintf(stderr, "FATAL : Failed to open file: %s\n", file_path);
     exit(EXIT_FAILURE);
   }
+  c->alloc_c = 0;
   return c;
 }
 
+void cgen_expr_f(FILE *file, AstNode *node) {
+  if (node->kind == AST_ATOM) {
+    fprintf(file, "  sub rsp, 4 ; allocate stack.\n");
+    fprintf(file, "  mov dword [rsp], %s ; load value.\n", node->atom_n.value);
+  } else if (node->kind == AST_BINARY) {
+    cgen_expr_f(file, node->binary_n.left);
+    cgen_expr_f(file, node->binary_n.right);
+
+    fprintf(file, "  mov eax, [rsp+4] ; Left value.\n");
+    fprintf(file, "  mov ebx, [rsp] ; Right value.\n");
+    fprintf(file, "  add rsp, 8 ; Clean up last two values.\n");
+
+    switch (node->binary_n.op) {
+    case OP_ADD: fprintf(file, "  add eax, ebx\n"); break;
+    case OP_SUB: fprintf(file, "  sub eax, ebx\n"); break;
+    case OP_MUL: fprintf(file, "  imul eax, ebx\n"); break;
+    case OP_DEV:
+      fprintf(file, "  xor edx, edx\n");
+      fprintf(file, "  div ebx\n");
+      break;
+    case OP_MOD:
+      fprintf(file, "  xor edx, edx\n");
+      fprintf(file, "  div ebx\n");
+      fprintf(file, "  mov eax, edx\n");
+      break;
+    default: break;
+    }
+
+    fprintf(file, "  sub rsp, 4 ; allocate stack.\n");
+    fprintf(file, "  mov [rsp], eax ; load result back onto stack.\n");
+  }
+}
+
 void cgen_return_s(Cgen *c) {
-  fprintf(c->file, "  mov rdi, %s\t; return code.\n", c->t_node->return_._int_);
+  cgen_expr_f(c->file, c->t_node->node);
+  fprintf(c->file, "  mov rdi, [rsp]\t; return value.\n");
+  fprintf(c->file, "  add rsp, 4 ; deallocate result.\n");
   c->t_node = c->t_node->next;
 }
 
@@ -31,7 +66,7 @@ void cgen(Cgen *c) {
   c->t_node = c->p->ast_head->next;
   while (c->t_node != NULL) {
     switch (c->t_node->kind) {
-    case RETURN_NODE: cgen_return_s(c); break;
+    case AST_RETURN: cgen_return_s(c); break;
     default: c->t_node = c->t_node->next;
     }
   }
