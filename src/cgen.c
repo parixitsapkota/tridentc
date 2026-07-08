@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "ast.h"
 #include "trident.h"
 
 Cgen *init_cgen(Parser *p, const char *file_path) {
@@ -51,7 +52,7 @@ void cgen_expr_f(FILE *file, AstNode *node) {
 
 void cgen_return_s(Cgen *c) {
   cgen_expr_f(c->file, c->t_node->node);
-  fprintf(c->file, "  mov rdi, [rsp]\t; return value.\n");
+  fprintf(c->file, "  mov rax, [rsp]\t; return value.\n");
   fprintf(c->file, "  add rsp, 4 ; deallocate result.\n");
   c->t_node = c->t_node->next;
 }
@@ -70,6 +71,7 @@ void cgen(Cgen *c) {
     default: c->t_node = c->t_node->next;
     }
   }
+  fprintf(c->file, "  mov rdi, rax\t; load return value.\n");
   fprintf(c->file, "  mov rax, 0x3C\t; exit syscall.\n");
   fprintf(c->file, "  syscall\t; syscall intrupt.\n");
 }

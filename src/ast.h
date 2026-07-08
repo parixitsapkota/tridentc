@@ -31,6 +31,7 @@ typedef enum {
   OP_MUL,
   OP_DEV,
   OP_MOD,
+  OP_ASSIGN,
 } OpKind;
 
 typedef struct {
@@ -44,6 +45,7 @@ typedef enum {
   AST_UNARY,
   AST_BINARY,
   AST_EXPR,
+  AST_LET,
   AST_RETURN,
 } AstKind;
 

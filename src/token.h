@@ -21,6 +21,7 @@ typedef enum {
   RETURN,
   FUNCTION,
   PUBLIC,
+  LET,
 
   // Seperator
   O_BRACE,   // `{`

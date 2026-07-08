@@ -13,4 +13,5 @@ struct Keyword {
 fn,      FUNCTION
 pub,     PUBLIC
 return,  RETURN
+let,     LET
 %%
