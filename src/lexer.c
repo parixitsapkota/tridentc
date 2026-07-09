@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "keywords.h"
+#include "lexer.h"
 #include "trident.h"
 
 // Lexer helper funcions

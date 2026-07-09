@@ -2,16 +2,18 @@
 #define _TRIDENT_AST_H_
 
 #include "token.h"
+#include "trident.h"
 #include <stddef.h>
 
 typedef struct AstNode AstNode;
 
 typedef enum {
-  UNKNOWN_LITERAL,
-  INT_LITERAL,
-  FLOAT_LITERAL,
-  STRING_LITERAL,
-  CHARACTER_LITERAL,
+  UNKNOWN_LIT,
+  INT_LIT,
+  FLOAT_LIT,
+  STRING_LIT,
+  CHARACTER_LIT,
+  IDENTIFIER_LIT,
 } AtomKind;
 
 typedef struct {
@@ -63,25 +65,12 @@ struct AstNode {
   size_t cn;
   // for compound statements.
   AstNode *next;
+  // Variable stack position
+  size_t stack_offset;
 };
 
-typedef enum {
-  PREC_UNKNOWN = -1,
-  PREC_NONE = 0,
-  PREC_COMMA,
-  PREC_ASSIGNMENT,
-  PREC_RANGE,
-  PREC_OR,
-  PREC_XOR,
-  PREC_AND,
-  PREC_BIT_OR,
-  PREC_BIT_XOR,
-  PREC_BIT_AND,
-  PREC_RELATIVE,
-  PREC_COMPARITIVE,
-  PREC_BITSHIFT,
-  PREC_ADDITIVE,
-  PREC_MULTIPLICATIVE,
-} Precedence;
+typedef struct {
+  size_t offset;
+} Offset;
 
 #endif // _TRIDENT_AST_H_

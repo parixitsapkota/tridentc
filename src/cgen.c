@@ -2,7 +2,7 @@
 #include <stdlib.h>
 
 #include "ast.h"
-#include "trident.h"
+#include "cgen.h"
 
 Cgen *init_cgen(Parser *p, const char *file_path) {
   Cgen *c = malloc(sizeof(Cgen));
@@ -18,16 +18,19 @@ Cgen *init_cgen(Parser *p, const char *file_path) {
 }
 
 void cgen_expr_f(FILE *file, AstNode *node) {
+  if (!node) {
+    return;
+  }
   if (node->kind == AST_ATOM) {
-    fprintf(file, "  sub rsp, 4 ; allocate stack.\n");
-    fprintf(file, "  mov dword [rsp], %s ; load value.\n", node->atom_n.value);
+    fprintf(file, "  sub rsp, 4\n");
+    fprintf(file, "  mov dword [rsp], %s\n", node->atom_n.value);
   } else if (node->kind == AST_BINARY) {
     cgen_expr_f(file, node->binary_n.left);
     cgen_expr_f(file, node->binary_n.right);
 
-    fprintf(file, "  mov eax, [rsp+4] ; Left value.\n");
-    fprintf(file, "  mov ebx, [rsp] ; Right value.\n");
-    fprintf(file, "  add rsp, 8 ; Clean up last two values.\n");
+    fprintf(file, "  mov eax, [rsp+4]\n");
+    fprintf(file, "  mov ebx, [rsp]\n");
+    fprintf(file, "  add rsp, 8\n");
 
     switch (node->binary_n.op) {
     case OP_ADD: fprintf(file, "  add eax, ebx\n"); break;
@@ -44,26 +47,24 @@ void cgen_expr_f(FILE *file, AstNode *node) {
       break;
     default: break;
     }
-
-    fprintf(file, "  sub rsp, 4 ; allocate stack.\n");
-    fprintf(file, "  mov [rsp], eax ; load result back onto stack.\n");
   }
 }
 
 void cgen_return_s(Cgen *c) {
   cgen_expr_f(c->file, c->t_node->node);
-  fprintf(c->file, "  mov rax, [rsp]\t; return value.\n");
-  fprintf(c->file, "  add rsp, 4 ; deallocate result.\n");
+  fprintf(c->file, "  mov rax, [rsp]\n");
+  fprintf(c->file, "  add rsp, 4\n");
   c->t_node = c->t_node->next;
 }
 
 void cgen(Cgen *c) {
   // Generate header
-  fprintf(c->file, "; MODEULE : %s\n", c->p->l->file);
+  fprintf(c->file, "; FROM : %s\n", c->p->l->file);
   fprintf(c->file, "global _start\n");
   fprintf(c->file, "section .text\n\n");
 
-  fprintf(c->file, "_start:\n");
+  // generate main function
+  fprintf(c->file, "main:\n");
   c->t_node = c->p->ast_head->next;
   while (c->t_node != NULL) {
     switch (c->t_node->kind) {
@@ -71,9 +72,14 @@ void cgen(Cgen *c) {
     default: c->t_node = c->t_node->next;
     }
   }
-  fprintf(c->file, "  mov rdi, rax\t; load return value.\n");
-  fprintf(c->file, "  mov rax, 0x3C\t; exit syscall.\n");
-  fprintf(c->file, "  syscall\t; syscall intrupt.\n");
+  fprintf(c->file, "  ret\n\n");
+
+  // generate _start function
+  fprintf(c->file, "_start:\n");
+  fprintf(c->file, "  call main\n");
+  fprintf(c->file, "  mov rdi, rax\n");
+  fprintf(c->file, "  mov rax, 0x3C\n");
+  fprintf(c->file, "  syscall\n");
 }
 
 void free_cgen(Cgen *c) {

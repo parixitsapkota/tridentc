@@ -4,12 +4,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
-
-#include "ast.h"
-#include "token.h"
-
-#include <stddef.h>
-#include <stdint.h>
 #include <stdlib.h>
 
 /// Reads the given file and returns it as a `char *`.
@@ -100,72 +94,5 @@ void arena_reset(__arena__ *arena);
 
 /// Frees the entire region chain and the arena itself.
 void free_arena(__arena__ *arena);
-
-// Lexer Structure
-typedef struct {
-  // buffer file name
-  const char *file;
-  // Input buffer
-  const char *buffer;
-  size_t buf_len;
-  // Position
-  size_t i;  // index
-  size_t ln; // line number
-  size_t cn; // colume number
-  // Token List
-  Arena *tokens;
-  Token *tok_head;
-  // Helper/Temp vars
-  Token *t_token;
-  size_t t_cn;
-} Lexer;
-
-#define TOKENS_STORE 1024
-
-/// Returns a lexer context based on given buffer and length of the buffer.
-Lexer *init_lexer(const char *file, const char *buffer, size_t buf_len);
-/// Lexes based on the given lexer context and mutates the state accordingly.
-void lexer(Lexer *l);
-/// Frees the allocated memory in the lexing context.
-void free_lexer(Lexer *l);
-
-// Parser Structure
-typedef struct {
-  Lexer *l;
-  // Position
-  size_t i; // index
-  // Ast store
-  Arena *ast;
-  AstNode *ast_head;
-  // Helper/Temp vars
-  Token *tok;
-  AstNode *t_node;
-} Parser;
-
-/// Returns a parser context based on given lexing context.
-Parser *init_parser(Lexer *l);
-/// parses based on the given lexer context and mutates the parser state accordingly.
-void parser(Parser *p);
-/// Frees the allocated memory in the Parsing context.
-void free_parser(Parser *p);
-
-// Codegen Structure
-typedef struct {
-  Parser *p;
-  // file store
-  const char *file_path;
-  FILE *file;
-  // Allocation counter
-  size_t alloc_c; // Expr stack allocation count;
-  // Helper/Temp vars
-  AstNode *t_node;
-} Cgen;
-
-/// Returns a Cgen context based on given Parser context.
-Cgen *init_cgen(Parser *p, const char *file_path);
-/// generates asm based on the given context and mutates the cgen state accordingly.
-void cgen(Cgen *c);
-/// Frees the allocated memory in the cgen context.
-void free_cgen(Cgen *c);
 
 #endif // _TRIDENT_H_

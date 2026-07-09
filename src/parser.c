@@ -2,9 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "colors.h"
+#include "ast.h"
 #include "parser.h"
-#include "token.h"
 #include "trident.h"
 
 // Parser helper funcions
@@ -50,15 +49,13 @@ void parser(Parser *p) {
 
   p->tok = p->l->tok_head->next;
   while (p->tok != NULL) {
-    if (p->tok->lexeme) {
-      printf(BOLD FG_BLUE "%s:%zu:%zu:" RESET "\t%-3d : %s\n", p->l->file, p->tok->ln, p->tok->cn,
-             p->tok->kind, p->tok->lexeme);
-    }
-
     switch (p->tok->kind) {
     case RETURN: add_node(&p->t_node, parse_return_s(p)); break;
     case LET: add_node(&p->t_node, parse_let_s(p)); break;
-    default: pconsume(p);
+    default:
+      fprintf(stderr, "%s:%zu:%zu: Unexpected token `%d`.\n", p->l->file, p->tok->ln, p->tok->cn,
+              p->tok->kind);
+      pconsume(p);
     }
   }
 }

@@ -7,12 +7,12 @@
 
 AtomKind get_atom_kind(TokenKind kind) {
   switch (kind) {
-  case INT: return INT_LITERAL;
-  case FLOAT: return FLOAT_LITERAL;
-  case STRING: return STRING_LITERAL;
-  case CHARACTER: return CHARACTER_LITERAL;
+  case INT: return INT_LIT;
+  case FLOAT: return FLOAT_LIT;
+  case STRING: return STRING_LIT;
+  case CHARACTER: return CHARACTER_LIT;
 
-  default: return UNKNOWN_LITERAL;
+  default: return UNKNOWN_LIT;
   }
 }
 
