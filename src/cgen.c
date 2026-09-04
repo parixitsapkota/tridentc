@@ -8,7 +8,7 @@ Cgen *init_cgen(Parser *p, const char *file_path) {
   Cgen *c = malloc(sizeof(Cgen));
   c->p = p;
   c->file_path = file_path;
-  c->file = fopen(file_path, "wa");
+  c->file = fopen(file_path, "w");
   if (!c->file) {
     fprintf(stderr, "FATAL : Failed to open file: %s\n", file_path);
     exit(EXIT_FAILURE);
@@ -21,6 +21,7 @@ void cgen_expr_f(FILE *file, AstNode *node) {
   if (!node) {
     return;
   }
+
   if (node->kind == AST_ATOM) {
     fprintf(file, "  sub rsp, 4\n");
     fprintf(file, "  mov dword [rsp], %s\n", node->atom_n.value);
@@ -28,6 +29,7 @@ void cgen_expr_f(FILE *file, AstNode *node) {
     cgen_expr_f(file, node->binary_n.left);
     cgen_expr_f(file, node->binary_n.right);
 
+    // Left is [rsp+4], Right is [rsp]
     fprintf(file, "  mov eax, [rsp+4]\n");
     fprintf(file, "  mov ebx, [rsp]\n");
     fprintf(file, "  add rsp, 8\n");
@@ -47,34 +49,50 @@ void cgen_expr_f(FILE *file, AstNode *node) {
       break;
     default: break;
     }
+
+    fprintf(file, "  sub rsp, 4\n");
+    fprintf(file, "  mov dword [rsp], eax\n");
   }
 }
 
 void cgen_return_s(Cgen *c) {
   cgen_expr_f(c->file, c->t_node->node);
-  fprintf(c->file, "  mov rax, [rsp]\n");
+  fprintf(c->file, "  mov eax, dword [rsp]\n");
   fprintf(c->file, "  add rsp, 4\n");
-  c->t_node = c->t_node->next;
+}
+
+void cgen_function_s(Cgen *c) {
+  fprintf(c->file, "%s:\n", c->t_node->function_n.name);
+
+  AstNode *saved_node = c->t_node;
+  AstNode *c_node = saved_node->function_n.body;
+
+  while (c_node != NULL) {
+    c->t_node = c_node;
+    switch (c_node->kind) {
+    case AST_RETURN: cgen_return_s(c); break;
+    default: break;
+    }
+    c_node = c_node->next;
+  }
+  c->t_node = saved_node->next;
 }
 
 void cgen(Cgen *c) {
-  // Generate header
-  fprintf(c->file, "; FROM : %s\n", c->p->l->file);
+  fprintf(c->file, "; MODULE : %s\n", c->p->l->file);
   fprintf(c->file, "global _start\n");
   fprintf(c->file, "section .text\n\n");
 
-  // generate main function
-  fprintf(c->file, "main:\n");
   c->t_node = c->p->ast_head->next;
   while (c->t_node != NULL) {
-    switch (c->t_node->kind) {
-    case AST_RETURN: cgen_return_s(c); break;
-    default: c->t_node = c->t_node->next;
+    if (c->t_node->kind == AST_FUNCTION) {
+      cgen_function_s(c);
+      fprintf(c->file, "  ret\n\n");
+    } else {
+      c->t_node = c->t_node->next;
     }
   }
-  fprintf(c->file, "  ret\n\n");
 
-  // generate _start function
   fprintf(c->file, "_start:\n");
   fprintf(c->file, "  call main\n");
   fprintf(c->file, "  mov rdi, rax\n");

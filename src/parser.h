@@ -52,4 +52,6 @@ void expect(Parser *p, TokenKind kind);
 AstNode *parse_atom_f(Parser *p);
 AstNode *parse_expr_f(Parser *p, Precedence prec);
 
+AstNode *parse_function_s(Parser *p);
+
 #endif // _TRIDENT_PARSER_H_

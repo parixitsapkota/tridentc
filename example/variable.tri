@@ -1,4 +1,0 @@
-let a = 147;
-let b = 471;
-
-return b - a;

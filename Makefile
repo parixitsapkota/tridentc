@@ -25,7 +25,7 @@ else
 endif
 
 KEYWORDS  := src/keywords.h
-C_SOURCES := $(wildcard src/*.c)
+C_SOURCES := $(shell find src -type f -name "*.c")
 H_HEADERS := $(filter-out $(KEYWORDS), $(wildcard src/*.h))
 SRCFILES  := $(C_SOURCES) $(H_HEADERS)
 

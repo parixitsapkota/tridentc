@@ -4,6 +4,7 @@
 
 #include "ast.h"
 #include "parser.h"
+#include "token.h"
 #include "trident.h"
 
 // Parser helper funcions
@@ -21,15 +22,15 @@ Parser *init_parser(Lexer *l) {
   return p;
 }
 
-AstNode *parse_let_s(Parser *p) {
-  expect(p, LET);
+AstNode *parse_auto_s(Parser *p) {
+  expect(p, AUTO);
 
   AstNode *expr_n = parse_expr_f(p, PREC_NONE);
 
-  AstNode *let_n = arena_alloc(p->ast, sizeof(AstNode));
-  *let_n = (AstNode){AST_LET, .node = expr_n};
+  AstNode *auto_n = arena_alloc(p->ast, sizeof(AstNode));
+  *auto_n = (AstNode){AST_AUTO, .node = expr_n};
   expect(p, SEMICOLON);
-  return let_n;
+  return auto_n;
 }
 
 AstNode *parse_return_s(Parser *p) {
@@ -43,18 +44,51 @@ AstNode *parse_return_s(Parser *p) {
   return return_n;
 }
 
+AstNode *parse_function_s(Parser *p) {
+  const char *function_name = p->tok->lexeme;
+  pconsume(p);
+
+  expect(p, O_PREN);
+  // TODO: parse_parameters_f
+  expect(p, C_PREN);
+
+  expect(p, O_BRACE);
+  AstNode *body_n = arena_alloc(p->ast, sizeof(AstNode));
+  AstNode *t_body_n = body_n;
+
+  while (p->tok != NULL) {
+    if (p->tok->kind == C_BRACE) {
+      break;
+    }
+    switch (p->tok->kind) {
+    case RETURN: add_node(&t_body_n, parse_return_s(p)); break;
+    case AUTO: add_node(&t_body_n, parse_auto_s(p)); break;
+    default:
+      fprintf(stderr, "%s:%zu:%zu: Unexpected token `%s`.\n", p->l->file, p->tok->ln, p->tok->cn,
+              token_kind_to_str(p->tok->kind));
+      pconsume(p);
+    }
+  }
+  expect(p, C_BRACE);
+
+  AstNode *function_n = arena_alloc(p->ast, sizeof(AstNode));
+  *function_n =
+      (AstNode){AST_FUNCTION, .function_n = (AstFunction){.name = function_name, .body = body_n}};
+
+  return function_n;
+}
+
 void parser(Parser *p) {
   p->ast_head = arena_alloc(p->ast, sizeof(AstNode));
   p->t_node = p->ast_head;
 
   p->tok = p->l->tok_head->next;
   while (p->tok != NULL) {
-    switch (p->tok->kind) {
-    case RETURN: add_node(&p->t_node, parse_return_s(p)); break;
-    case LET: add_node(&p->t_node, parse_let_s(p)); break;
-    default:
-      fprintf(stderr, "%s:%zu:%zu: Unexpected token `%d`.\n", p->l->file, p->tok->ln, p->tok->cn,
-              p->tok->kind);
+    if (p->tok->kind == IDENTIFIER) {
+      add_node(&p->t_node, parse_function_s(p));
+    } else {
+      fprintf(stderr, "%s:%zu:%zu: Unexpected token `%s`.\n", p->l->file, p->tok->ln, p->tok->cn,
+              token_kind_to_str(p->tok->kind));
       pconsume(p);
     }
   }
@@ -94,13 +128,13 @@ Token *pconsume(Parser *p) {
 void expect(Parser *p, TokenKind kind) {
   const Token *tok = pconsume(p);
   if (tok == NULL) {
-    fprintf(stderr, "%s:%zu:%zu: Expected `%d` but got end of input\n", p->l->file, p->l->ln,
-            p->l->cn, kind);
+    fprintf(stderr, "%s:%zu:%zu: Expected `%s` but got end of input\n", p->l->file, p->l->ln,
+            p->l->cn, token_kind_to_str(kind));
     return;
   }
   const TokenKind got = tok->kind;
   if (kind != got) {
-    fprintf(stderr, "%s:%zu:%zu: Expected `%d` but got `%d`\n", p->l->file, p->l->ln, p->l->cn,
-            kind, got);
+    fprintf(stderr, "%s:%zu:%zu: Expected `%s` but got `%s`\n", p->l->file, p->l->ln, p->l->cn,
+            token_kind_to_str(kind), token_kind_to_str(got));
   }
 }

@@ -18,10 +18,12 @@ typedef enum {
   LABLE,
 
   // Keywords
+  EXTERN,
+  AUTO,
+  IF,
+  ELSE,
+  WHILE,
   RETURN,
-  FUNCTION,
-  PUBLIC,
-  LET,
 
   // Seperator
   O_BRACE,   // `{`
@@ -31,6 +33,7 @@ typedef enum {
   O_BRACKET, // `[`
   C_BRACKET, // `]`
   SEMICOLON, // `;`
+
   // Operator
   COMMA,  // `,`
   DOT,    // `.`
@@ -54,5 +57,8 @@ typedef struct Token {
   // Next Token
   struct Token *next;
 } Token;
+
+/// Returns a tokenKind atring based on given tokenKind.
+char *token_kind_to_str(TokenKind kind);
 
 #endif // _TRIDENT_TOKEN_H_

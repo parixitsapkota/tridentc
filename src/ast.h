@@ -1,9 +1,10 @@
 #ifndef _TRIDENT_AST_H_
 #define _TRIDENT_AST_H_
 
+#include <stddef.h>
+
 #include "token.h"
 #include "trident.h"
-#include <stddef.h>
 
 typedef struct AstNode AstNode;
 
@@ -42,12 +43,24 @@ typedef struct {
   AstNode *right;
 } AstBinary;
 
+typedef struct {
+  const char *name;
+  AstNode *body;
+} AstFunction;
+
 typedef enum {
   AST_ATOM,
   AST_UNARY,
   AST_BINARY,
   AST_EXPR,
-  AST_LET,
+  AST_FUNCTION,
+  AST_FUNCTION_BODY,
+  AST_EXTERN,
+  AST_AUTO,
+  AST_IF,
+  AST_ELSE_IF,
+  AST_ELSE,
+  AST_WHILE,
   AST_RETURN,
 } AstKind;
 
@@ -56,8 +69,9 @@ struct AstNode {
   // Token Type_union.
   union {
     AstAtom atom_n;
-    AstBinary binary_n;
     AstUnary unary_n;
+    AstBinary binary_n;
+    AstFunction function_n;
     AstNode *node;
   };
   // Position

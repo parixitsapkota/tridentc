@@ -10,8 +10,10 @@ struct Keyword {
 };
 
 %%
-fn,      FUNCTION
-pub,     PUBLIC
+extern,  EXTERN
+auto,    AUTO
+if,      IF
+else,    ELSE
+while,   WHILE
 return,  RETURN
-let,     LET
 %%
