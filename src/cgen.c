@@ -61,21 +61,32 @@ void cgen_return_s(Cgen *c) {
   fprintf(c->file, "  add rsp, 4\n");
 }
 
-void cgen_function_s(Cgen *c) {
-  fprintf(c->file, "%s:\n", c->t_node->function_n.name);
-
-  AstNode *saved_node = c->t_node;
-  AstNode *c_node = saved_node->function_n.body;
+void cgen_scope_f(Cgen *c, AstNode *first_node) {
+  AstNode *c_node = first_node;
 
   while (c_node != NULL) {
     c->t_node = c_node;
     switch (c_node->kind) {
     case AST_RETURN: cgen_return_s(c); break;
+    case AST_SCOPE:
+      // Handle nested scopes recursively
+      cgen_scope_f(c, c_node->node);
+      break;
     default: break;
     }
     c_node = c_node->next;
   }
-  c->t_node = saved_node->next;
+}
+
+void cgen_function_s(Cgen *c) {
+  fprintf(c->file, "%s:\n", c->t_node->function_n.name);
+
+  AstNode *body_scope = c->t_node->function_n.body;
+  if (body_scope && body_scope->kind == AST_SCOPE) {
+    cgen_scope_f(c, body_scope->node);
+  }
+
+  fprintf(c->file, "  ret\n\n");
 }
 
 void cgen(Cgen *c) {
@@ -87,7 +98,6 @@ void cgen(Cgen *c) {
   while (c->t_node != NULL) {
     if (c->t_node->kind == AST_FUNCTION) {
       cgen_function_s(c);
-      fprintf(c->file, "  ret\n\n");
     } else {
       c->t_node = c->t_node->next;
     }

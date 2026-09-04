@@ -44,6 +44,35 @@ AstNode *parse_return_s(Parser *p) {
   return return_n;
 }
 
+AstNode *parse_scope_f(Parser *p) {
+  AstNode *body_head = arena_alloc(p->ast, sizeof(AstNode));
+  AstNode *body_tail = body_head;
+
+  expect(p, O_BRACE);
+  while (p->tok != NULL) {
+    if (p->tok->kind == C_BRACE) {
+      break;
+    }
+    switch (p->tok->kind) {
+    case RETURN: add_node(&body_tail, parse_return_s(p)); break;
+    case AUTO: add_node(&body_tail, parse_auto_s(p)); break;
+    case O_BRACE: add_node(&body_tail, parse_scope_f(p)); break;
+    default: {
+      AstNode *p_expr_n = parse_expr_f(p, PREC_NONE);
+      AstNode *expr_n = arena_alloc(p->ast, sizeof(AstNode));
+      *expr_n = (AstNode){AST_RETURN, .node = p_expr_n};
+      expect(p, SEMICOLON);
+      add_node(&body_tail, expr_n);
+    }
+    }
+  }
+  expect(p, C_BRACE);
+
+  AstNode *scope_n = arena_alloc(p->ast, sizeof(AstNode));
+  *scope_n = (AstNode){AST_SCOPE, .node = body_head->next};
+  return scope_n;
+}
+
 AstNode *parse_function_s(Parser *p) {
   const char *function_name = p->tok->lexeme;
   pconsume(p);
@@ -52,24 +81,7 @@ AstNode *parse_function_s(Parser *p) {
   // TODO: parse_parameters_f
   expect(p, C_PREN);
 
-  expect(p, O_BRACE);
-  AstNode *body_n = arena_alloc(p->ast, sizeof(AstNode));
-  AstNode *t_body_n = body_n;
-
-  while (p->tok != NULL) {
-    if (p->tok->kind == C_BRACE) {
-      break;
-    }
-    switch (p->tok->kind) {
-    case RETURN: add_node(&t_body_n, parse_return_s(p)); break;
-    case AUTO: add_node(&t_body_n, parse_auto_s(p)); break;
-    default:
-      fprintf(stderr, "%s:%zu:%zu: Unexpected token `%s`.\n", p->l->file, p->tok->ln, p->tok->cn,
-              token_kind_to_str(p->tok->kind));
-      pconsume(p);
-    }
-  }
-  expect(p, C_BRACE);
+  AstNode *body_n = parse_scope_f(p);
 
   AstNode *function_n = arena_alloc(p->ast, sizeof(AstNode));
   *function_n =
