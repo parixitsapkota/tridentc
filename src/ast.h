@@ -78,6 +78,8 @@ struct AstNode {
   size_t ln;
   size_t cn;
   // for compound statements.
+  AstNode *parent;
+  Hs *symtab;
   AstNode *next;
   // Variable stack position
   size_t stack_offset;

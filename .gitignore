@@ -6,8 +6,8 @@
 
 # Build generated
 build/
-src/keywords.h
 trident
+*.exe
 
 # Project generated
 asm/

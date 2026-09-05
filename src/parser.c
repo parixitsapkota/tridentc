@@ -19,6 +19,7 @@ Parser *init_parser(Lexer *l) {
   p->i = 0;
   p->l = l;
   p->ast = init_arena(sizeof(AstNode) * TOKENS_STORE);
+  p->offsets = init_arena(sizeof(Offset) * 1024);
   return p;
 }
 
@@ -44,9 +45,12 @@ AstNode *parse_return_s(Parser *p) {
   return return_n;
 }
 
-AstNode *parse_scope_f(Parser *p) {
+AstNode *parse_scope_f(Parser *p, AstNode *parent) {
+  AstNode *scope_n = arena_alloc(p->ast, sizeof(AstNode));
   AstNode *body_head = arena_alloc(p->ast, sizeof(AstNode));
   AstNode *body_tail = body_head;
+  size_t stack_offset = 0;
+  Hs *symtab = init_hash_set(16);
 
   expect(p, O_BRACE);
   while (p->tok != NULL) {
@@ -55,9 +59,15 @@ AstNode *parse_scope_f(Parser *p) {
     }
     switch (p->tok->kind) {
     case RETURN: add_node(&body_tail, parse_return_s(p)); break;
-    case AUTO: add_node(&body_tail, parse_auto_s(p)); break;
-    case O_BRACE: add_node(&body_tail, parse_scope_f(p)); break;
+    case AUTO:
+      add_node(&body_tail, parse_auto_s(p));
+      ++stack_offset;
+      break;
+    case O_BRACE: add_node(&body_tail, parse_scope_f(p, scope_n)); break;
     default: {
+      Offset *offset = arena_alloc(p->offsets, sizeof(Offset));
+      *offset = (Offset){stack_offset};
+      put_to_hash_set(symtab, p->tok->lexeme, offset);
       AstNode *p_expr_n = parse_expr_f(p, PREC_NONE);
       AstNode *expr_n = arena_alloc(p->ast, sizeof(AstNode));
       *expr_n = (AstNode){AST_RETURN, .node = p_expr_n};
@@ -68,8 +78,7 @@ AstNode *parse_scope_f(Parser *p) {
   }
   expect(p, C_BRACE);
 
-  AstNode *scope_n = arena_alloc(p->ast, sizeof(AstNode));
-  *scope_n = (AstNode){AST_SCOPE, .node = body_head->next};
+  *scope_n = (AstNode){AST_SCOPE, .parent = parent, .symtab = symtab, .node = body_head->next};
   return scope_n;
 }
 
@@ -81,7 +90,7 @@ AstNode *parse_function_s(Parser *p) {
   // TODO: parse_parameters_f
   expect(p, C_PREN);
 
-  AstNode *body_n = parse_scope_f(p);
+  AstNode *body_n = parse_scope_f(p, NULL);
 
   AstNode *function_n = arena_alloc(p->ast, sizeof(AstNode));
   *function_n =
@@ -108,6 +117,7 @@ void parser(Parser *p) {
 
 void free_parser(Parser *p) {
   free_arena(p->ast);
+  free_arena(p->offsets);
   free(p);
 }
 

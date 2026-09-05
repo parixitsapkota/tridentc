@@ -23,8 +23,16 @@ void cgen_expr_f(FILE *file, AstNode *node) {
   }
 
   if (node->kind == AST_ATOM) {
-    fprintf(file, "  sub rsp, 4\n");
-    fprintf(file, "  mov dword [rsp], %s\n", node->atom_n.value);
+    switch (node->atom_n.kind) {
+    case INT_LIT:
+      fprintf(file, "  sub rsp, 4\n");
+      fprintf(file, "  mov dword [rsp], %s\n", node->atom_n.value);
+      // case IDENTIFIER_LIT:
+      //   fprintf(file, "  sub rsp, 4\n");
+      //   fprintf(file, "  mov dword [rsp], %d\n", node->atom_n.value);
+
+    default: break;
+    }
   } else if (node->kind == AST_BINARY) {
     cgen_expr_f(file, node->binary_n.left);
     cgen_expr_f(file, node->binary_n.right);
@@ -68,9 +76,11 @@ void cgen_scope_f(Cgen *c, AstNode *first_node) {
     c->t_node = c_node;
     switch (c_node->kind) {
     case AST_RETURN: cgen_return_s(c); break;
+    case AST_EXPR: cgen_expr_f(c->file, c_node->node); break;
     case AST_SCOPE:
       // Handle nested scopes recursively
       cgen_scope_f(c, c_node->node);
+      free_hash_set(c_node->symtab);
       break;
     default: break;
     }
@@ -84,6 +94,7 @@ void cgen_function_s(Cgen *c) {
   AstNode *body_scope = c->t_node->function_n.body;
   if (body_scope && body_scope->kind == AST_SCOPE) {
     cgen_scope_f(c, body_scope->node);
+    free_hash_set(body_scope->symtab);
   }
 
   fprintf(c->file, "  ret\n\n");
@@ -91,8 +102,21 @@ void cgen_function_s(Cgen *c) {
 
 void cgen(Cgen *c) {
   fprintf(c->file, "; MODULE : %s\n", c->p->l->file);
+
+#if defined(__linux__) || defined(_TUX)
   fprintf(c->file, "global _start\n");
-  fprintf(c->file, "section .text\n\n");
+
+#elif defined(__MacOS__) || defined(_XOS)
+  fprintf(c->file, "global _main\n");
+  fprintf(c->file, "extern _exit\n");
+
+#elif defined(__FreeBSD__) || defined(_BSD)
+  fprintf(c->file, "global _start\n");
+
+#elif defined(__Windows__) || defined(_WIN32)
+  fprintf(c->file, "global mainCRTStartup\n");
+  fprintf(c->file, "extern ExitProcess\n");
+#endif
 
   c->t_node = c->p->ast_head->next;
   while (c->t_node != NULL) {
@@ -103,11 +127,33 @@ void cgen(Cgen *c) {
     }
   }
 
+#if defined(__linux__) || defined(_TUX)
   fprintf(c->file, "_start:\n");
   fprintf(c->file, "  call main\n");
   fprintf(c->file, "  mov rdi, rax\n");
   fprintf(c->file, "  mov rax, 0x3C\n");
   fprintf(c->file, "  syscall\n");
+
+#elif defined(__MacOS__) || defined(_XOS)
+  fprintf(c->file, "_main:\n");
+  fprintf(c->file, "  call _main_impl\n");
+  fprintf(c->file, "  mov rdi, rax\n");
+  fprintf(c->file, "  call _exit\n");
+
+#elif defined(__FreeBSD__) || defined(_BSD)
+  fprintf(c->file, "_start:\n");
+  fprintf(c->file, "  call main\n");
+  fprintf(c->file, "  mov rdi, rax\n");
+  fprintf(c->file, "  mov rax, 1\n");
+  fprintf(c->file, "  sysenter\n");
+
+#elif defined(__Windows__) || defined(_WIN32)
+  fprintf(c->file, "mainCRTStartup:\n");
+  fprintf(c->file, "  sub rsp, 40\n");
+  fprintf(c->file, "  call main\n");
+  fprintf(c->file, "  mov rcx, rax\n");
+  fprintf(c->file, "  call ExitProcess\n");
+#endif
 }
 
 void free_cgen(Cgen *c) {

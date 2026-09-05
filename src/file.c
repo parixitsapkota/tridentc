@@ -9,7 +9,7 @@ char *read_file(FILE *file, size_t *bytes) {
 
   char *content = malloc(file_size + 1);
   if (!content) {
-    fprintf(stderr, "Failed to allocate %lu bytes.\n", file_size);
+    fprintf(stderr, "Failed to allocate %zu bytes.\n", file_size);
     exit(EXIT_FAILURE);
   }
 

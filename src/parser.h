@@ -12,6 +12,7 @@ typedef struct {
   size_t i; // index
   // Ast store
   Arena *ast;
+  Arena *offsets;
   AstNode *ast_head;
   // Helper/Temp vars
   Token *tok;

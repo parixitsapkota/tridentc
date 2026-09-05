@@ -41,10 +41,26 @@ int main(int argc, char *argv[]) {
   free_lexer(l);
   free_cgen(c);
 
-  static char cmd[1024];
-  sprintf(cmd, "nasm -f elf64 %s -o %s.o", out_file_path, out_file_path);
-  system(cmd);
-  sprintf(cmd, "ld -o a.out %s.o", out_file_path);
+  char cmd[2048];
+
+#if defined(__linux__) || defined(_TUX)
+  snprintf(cmd, sizeof(cmd), "nasm -f elf64 \"%s\" -o \"%s.o\"", out_file_path, out_file_path);
+  snprintf(cmd, sizeof(cmd), "ld - o a.out \"%s.o\"", out_file_path);
+
+#elif defined(__MacOS__) || defined(_XOS)
+
+  snprintf(cmd, sizeof(cmd), "nasm -f macho64 \"%s\" -o \"%s.o\"", out_file_path, out_file_path);
+  snprintf(cmd, sizeof(cmd), clang - arch x86_64 \"%s.o\" -o a.out", out_file_path);
+
+#elif defined(__FreeBSD__) || defined(_BSD)
+  snprintf(cmd, sizeof(cmd), "nasm -f elf64 \"%s\" -o \"%s.o\"", out_file_path, out_file_path);
+  snprintf(cmd, sizeof(cmd), "ld -o a.out \"%s.o\"", out_file_path);
+
+#elif defined(__Windows__) || defined(_WIN32)
+  snprintf(cmd, sizeof(cmd), "nasm -f win64 \"%s\" -o \"%s.obj\"", out_file_path, out_file_path);
+  snprintf(cmd, sizeof(cmd), "gcc \"%s.obj\" -o a.exe", out_file_path);
+#endif
+
   system(cmd);
 
   return 0;
