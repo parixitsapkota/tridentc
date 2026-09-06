@@ -23,8 +23,13 @@ Parser *init_parser(Lexer *l) {
   return p;
 }
 
-AstNode *parse_auto_s(Parser *p) {
+AstNode *parse_auto_s(Parser *p, Hs *symtab, size_t *stack_offset) {
   expect(p, AUTO);
+
+  Offset *offset = arena_alloc(p->offsets, sizeof(Offset));
+  *offset = (Offset){*stack_offset};
+  put_to_hash_set(symtab, p->tok->lexeme, offset);
+  ++*stack_offset;
 
   AstNode *expr_n = parse_expr_f(p, PREC_NONE);
 
@@ -45,11 +50,11 @@ AstNode *parse_return_s(Parser *p) {
   return return_n;
 }
 
-AstNode *parse_scope_f(Parser *p, AstNode *parent) {
+AstNode *parse_scope_f(Parser *p, AstNode *parent, size_t parent_stack_offset) {
   AstNode *scope_n = arena_alloc(p->ast, sizeof(AstNode));
   AstNode *body_head = arena_alloc(p->ast, sizeof(AstNode));
   AstNode *body_tail = body_head;
-  size_t stack_offset = 0;
+  size_t stack_offset = parent_stack_offset;
   Hs *symtab = init_hash_set(16);
 
   expect(p, O_BRACE);
@@ -59,15 +64,9 @@ AstNode *parse_scope_f(Parser *p, AstNode *parent) {
     }
     switch (p->tok->kind) {
     case RETURN: add_node(&body_tail, parse_return_s(p)); break;
-    case AUTO:
-      add_node(&body_tail, parse_auto_s(p));
-      ++stack_offset;
-      break;
-    case O_BRACE: add_node(&body_tail, parse_scope_f(p, scope_n)); break;
+    case AUTO: add_node(&body_tail, parse_auto_s(p, symtab, &stack_offset)); break;
+    case O_BRACE: add_node(&body_tail, parse_scope_f(p, scope_n, stack_offset)); break;
     default: {
-      Offset *offset = arena_alloc(p->offsets, sizeof(Offset));
-      *offset = (Offset){stack_offset};
-      put_to_hash_set(symtab, p->tok->lexeme, offset);
       AstNode *p_expr_n = parse_expr_f(p, PREC_NONE);
       AstNode *expr_n = arena_alloc(p->ast, sizeof(AstNode));
       *expr_n = (AstNode){AST_RETURN, .node = p_expr_n};
@@ -90,7 +89,7 @@ AstNode *parse_function_s(Parser *p) {
   // TODO: parse_parameters_f
   expect(p, C_PREN);
 
-  AstNode *body_n = parse_scope_f(p, NULL);
+  AstNode *body_n = parse_scope_f(p, NULL, 1);
 
   AstNode *function_n = arena_alloc(p->ast, sizeof(AstNode));
   *function_n =

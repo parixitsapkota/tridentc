@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "ast.h"
 #include "cgen.h"
@@ -17,7 +18,18 @@ Cgen *init_cgen(Parser *p, const char *file_path) {
   return c;
 }
 
-void cgen_expr_f(FILE *file, AstNode *node) {
+static Offset *lookup_symbol(AstNode *scope, const char *name) {
+  AstNode *curr_scope = scope;
+  while (curr_scope != NULL) {
+    if (curr_scope->symtab && has_in_hash_set(curr_scope->symtab, name)) {
+      return (Offset *)get_from_hash_set(curr_scope->symtab, name);
+    }
+    curr_scope = curr_scope->parent;
+  }
+  return NULL;
+}
+
+void cgen_expr_f(Cgen *c, AstNode *node, AstNode *scope) {
   if (!node) {
     return;
   }
@@ -25,79 +37,144 @@ void cgen_expr_f(FILE *file, AstNode *node) {
   if (node->kind == AST_ATOM) {
     switch (node->atom_n.kind) {
     case INT_LIT:
-      fprintf(file, "  sub rsp, 4\n");
-      fprintf(file, "  mov dword [rsp], %s\n", node->atom_n.value);
-      // case IDENTIFIER_LIT:
-      //   fprintf(file, "  sub rsp, 4\n");
-      //   fprintf(file, "  mov dword [rsp], %d\n", node->atom_n.value);
+      fprintf(c->file, "  sub rsp, 4\n");
+      fprintf(c->file, "  mov dword [rsp], %s\n", node->atom_n.value);
+      break;
+
+    case IDENTIFIER_LIT: {
+      Offset *sym = lookup_symbol(scope, node->atom_n.value);
+      if (!sym) {
+        fprintf(stderr, "FATAL: Undefined variable '%s'\n", node->atom_n.value);
+        exit(EXIT_FAILURE);
+      }
+
+      fprintf(c->file, "  sub rsp, 4\n");
+      fprintf(c->file, "  mov eax, [rbp - %zu]\n", sym->offset * 4);
+      fprintf(c->file, "  mov dword [rsp], eax\n");
+      break;
+    }
 
     default: break;
     }
   } else if (node->kind == AST_BINARY) {
-    cgen_expr_f(file, node->binary_n.left);
-    cgen_expr_f(file, node->binary_n.right);
+    if (node->binary_n.op == OP_ASSIGN) {
+      cgen_expr_f(c, node->binary_n.right, scope);
+
+      AstNode *left_node = node->binary_n.left;
+
+      const char *var_name = left_node->atom_n.value;
+
+      Offset *sym = lookup_symbol(scope, var_name);
+      if (!sym) {
+        fprintf(stderr, "FATAL: Undefined variable '%s'\n", var_name);
+        exit(EXIT_FAILURE);
+      }
+
+      fprintf(c->file, "  mov eax, dword [rsp]\n");
+      fprintf(c->file, "  add rsp, 4\n");
+      fprintf(c->file, "  mov dword [rbp - %zu], eax\n", sym->offset * 4);
+      return;
+    }
+
+    cgen_expr_f(c, node->binary_n.left, scope);
+    cgen_expr_f(c, node->binary_n.right, scope);
 
     // Left is [rsp+4], Right is [rsp]
-    fprintf(file, "  mov eax, [rsp+4]\n");
-    fprintf(file, "  mov ebx, [rsp]\n");
-    fprintf(file, "  add rsp, 8\n");
+    fprintf(c->file, "  mov eax, [rsp+4]\n");
+    fprintf(c->file, "  mov ebx, [rsp]\n");
+    fprintf(c->file, "  add rsp, 8\n");
 
     switch (node->binary_n.op) {
-    case OP_ADD: fprintf(file, "  add eax, ebx\n"); break;
-    case OP_SUB: fprintf(file, "  sub eax, ebx\n"); break;
-    case OP_MUL: fprintf(file, "  imul eax, ebx\n"); break;
+    case OP_ADD: fprintf(c->file, "  add eax, ebx\n"); break;
+    case OP_SUB: fprintf(c->file, "  sub eax, ebx\n"); break;
+    case OP_MUL: fprintf(c->file, "  imul eax, ebx\n"); break;
     case OP_DEV:
-      fprintf(file, "  xor edx, edx\n");
-      fprintf(file, "  div ebx\n");
+      fprintf(c->file, "  xor edx, edx\n");
+      fprintf(c->file, "  div ebx\n");
       break;
     case OP_MOD:
-      fprintf(file, "  xor edx, edx\n");
-      fprintf(file, "  div ebx\n");
-      fprintf(file, "  mov eax, edx\n");
+      fprintf(c->file, "  xor edx, edx\n");
+      fprintf(c->file, "  cdq\n");
+      fprintf(c->file, "  idiv ebx\n");
+      fprintf(c->file, "  mov eax, edx\n");
       break;
     default: break;
     }
 
-    fprintf(file, "  sub rsp, 4\n");
-    fprintf(file, "  mov dword [rsp], eax\n");
+    fprintf(c->file, "  sub rsp, 4\n");
+    fprintf(c->file, "  mov dword [rsp], eax\n");
   }
 }
 
-void cgen_return_s(Cgen *c) {
-  cgen_expr_f(c->file, c->t_node->node);
+void cgen_auto_s(Cgen *c, AstNode *node, AstNode *scope) {
+  if (!node->node) {
+    return;
+  }
+
+  if (node->node->kind == AST_BINARY && node->node->binary_n.op == OP_ASSIGN) {
+    cgen_expr_f(c, node->node, scope);
+  } else if (node->node->kind == AST_EXPR) {
+    cgen_expr_f(c, node->node->node, scope);
+  }
+}
+
+void cgen_return_s(Cgen *c, AstNode *scope) {
+  cgen_expr_f(c, c->t_node->node, scope);
   fprintf(c->file, "  mov eax, dword [rsp]\n");
   fprintf(c->file, "  add rsp, 4\n");
 }
 
-void cgen_scope_f(Cgen *c, AstNode *first_node) {
-  AstNode *c_node = first_node;
+void cgen_scope_f(Cgen *c) {
+  AstNode *scope_node = c->t_node;
+  if (!scope_node) {
+    return;
+  }
 
-  while (c_node != NULL) {
-    c->t_node = c_node;
-    switch (c_node->kind) {
-    case AST_RETURN: cgen_return_s(c); break;
-    case AST_EXPR: cgen_expr_f(c->file, c_node->node); break;
-    case AST_SCOPE:
-      // Handle nested scopes recursively
-      cgen_scope_f(c, c_node->node);
-      free_hash_set(c_node->symtab);
-      break;
+  AstNode *curr = scope_node->node;
+
+  while (curr != NULL) {
+    c->t_node = curr;
+
+    switch (curr->kind) {
+    case AST_RETURN: cgen_return_s(c, scope_node); break;
+    case AST_AUTO: cgen_auto_s(c, curr, scope_node); break;
+    case AST_EXPR: cgen_expr_f(c, curr->node, scope_node); break;
+    case AST_SCOPE: cgen_scope_f(c); break;
     default: break;
     }
-    c_node = c_node->next;
+
+    curr = curr->next;
+  }
+
+  c->t_node = scope_node;
+  if (scope_node->symtab) {
+    free_hash_set(scope_node->symtab);
+    scope_node->symtab = NULL;
   }
 }
 
 void cgen_function_s(Cgen *c) {
   fprintf(c->file, "%s:\n", c->t_node->function_n.name);
 
-  AstNode *body_scope = c->t_node->function_n.body;
+  // Stack Frame Prologue
+  fprintf(c->file, "  push rbp\n");
+  fprintf(c->file, "  mov rbp, rsp\n");
+  fprintf(c->file, "  sub rsp, 64\n");
+
+  AstNode *save_func = c->t_node;
+  AstNode *body_scope = save_func->function_n.body;
+
   if (body_scope && body_scope->kind == AST_SCOPE) {
-    cgen_scope_f(c, body_scope->node);
-    free_hash_set(body_scope->symtab);
+    c->t_node = body_scope;
+    cgen_scope_f(c);
   }
 
+  // Stack Frame Epilogue
+  fprintf(c->file, "  mov rsp, rbp\n");
+  fprintf(c->file, "  pop rbp\n");
   fprintf(c->file, "  ret\n\n");
+
+  c->t_node = save_func->next;
 }
 
 void cgen(Cgen *c) {
