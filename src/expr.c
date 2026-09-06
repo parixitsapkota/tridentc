@@ -67,14 +67,12 @@ OpKind get_op(TokenKind kind) {
   }
 }
 
-AstNode *parse_atom_f(Parser *p) {
+AstAtom *parse_atom_f(Parser *p) {
   Token *tok = pconsume(p);
 
-  AstNode *node = arena_alloc(p->ast, sizeof(AstNode));
   AtomKind literal_kind = get_atom_kind(tok->kind);
-  *node = (AstNode){AST_ATOM, .atom_n = (AstAtom){literal_kind, tok->lexeme}, tok->ln, tok->cn};
 
-  return node;
+  return new_ast_atom(p->ast, literal_kind, tok->lexeme);
 }
 
 AstNode *parse_left_f(Parser *p) {
@@ -84,7 +82,9 @@ AstNode *parse_left_f(Parser *p) {
     expect(p, C_PREN);
     return node;
   } else {
-    return parse_atom_f(p);
+    AstNode *left = arena_alloc(p->ast, sizeof(AstNode));
+    *left = (AstNode){AST_ATOM, .atom_n = parse_atom_f(p)};
+    return left;
   }
 }
 
@@ -116,8 +116,8 @@ AstNode *parse_expr_f(Parser *p, Precedence prec) {
 
     AstNode *node = arena_alloc(p->ast, sizeof(AstNode));
 
-    *node = (AstNode){AST_BINARY, .binary_n = (AstBinary){left, get_op(op), right}, op_tok->ln,
-                      op_tok->cn};
+    *node = (AstNode){AST_BINARY, .binary_n = new_ast_binary(p->ast, left, get_op(op), right),
+                      op_tok->ln, op_tok->cn};
     left = node;
   }
 

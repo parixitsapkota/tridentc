@@ -43,6 +43,13 @@ typedef struct {
   AstNode *right;
 } AstBinary;
 
+typedef struct AstScope AstScope;
+struct AstScope {
+  Hs *symtab;
+  AstNode *parent;
+  AstNode *body;
+};
+
 typedef struct {
   const char *name;
   AstNode *body;
@@ -68,10 +75,11 @@ struct AstNode {
   AstKind kind;
   // Token Type_union.
   union {
-    AstAtom atom_n;
-    AstUnary unary_n;
-    AstBinary binary_n;
-    AstFunction function_n;
+    AstAtom *atom_n;
+    AstUnary *unary_n;
+    AstBinary *binary_n;
+    AstScope *scope_n;
+    AstFunction *function_n;
     AstNode *node;
   };
   // Position
@@ -79,14 +87,17 @@ struct AstNode {
   size_t cn;
   // for compound statements.
   AstNode *parent;
-  Hs *symtab;
   AstNode *next;
-  // Variable stack position
-  size_t stack_offset;
 };
 
 typedef struct {
   size_t offset;
 } Offset;
+
+AstAtom *new_ast_atom(Arena *arena, AtomKind kind, const char *value);
+AstUnary *new_ast_unary(Arena *arena, AstNode *node, TokenKind op);
+AstBinary *new_ast_binary(Arena *arena, AstNode *left, OpKind op, AstNode *right);
+AstScope *new_ast_scope(Arena *arena, Hs *symtab, AstNode *parent, AstNode *body);
+AstFunction *new_ast_function(Arena *arena, const char *name, AstNode *body);
 
 #endif // _TRIDENT_AST_H_
