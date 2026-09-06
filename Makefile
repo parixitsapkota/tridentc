@@ -48,8 +48,8 @@ else ifeq ($(PLATFORM),windows)
 	OUTPUT = $(PROJECT).exe
 endif
 
-C_SOURCES := $(wildcard src/*.c)
-H_HEADERS := $(wildcard src/*.h)
+C_SOURCES := $(wildcard src/*.c src/**/*.c src/**/**/*.c)
+H_HEADERS := $(wildcard src/*.h src/**/*.h src/**/**/*.h)
 SRCFILES  := $(C_SOURCES) $(H_HEADERS)
 
 OBJECTS := $(patsubst src/%.c, $(BUILD)/%.o, $(C_SOURCES))
