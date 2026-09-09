@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "ap.h"
 #include "cgen.h"
 #include "lexer.h"
 #include "parser.h"
@@ -35,7 +36,10 @@ int main(int argc, char *argv[]) {
   const char *out_file_path = "asm/out.asm";
 
   Cgen *c = init_cgen(p, out_file_path);
+
   cgen(c);
+  
+  // print_ast(p);
 
   free_parser(p);
   free_lexer(l);

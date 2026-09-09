@@ -1,4 +1,5 @@
 main() {
-  auto c = 10;
+  auto c;
+  c = 10;
   return c;
 }

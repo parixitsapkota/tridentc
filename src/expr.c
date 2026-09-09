@@ -77,9 +77,9 @@ AstAtom *parse_atom_f(Parser *p) {
 
 AstNode *parse_left_f(Parser *p) {
   if (curr(p)->kind == O_PREN) {
-    expect(p, O_PREN);
+    expect_and_consume(p, O_PREN);
     AstNode *node = parse_expr_f(p, PREC_NONE);
-    expect(p, C_PREN);
+    expect_and_consume(p, C_PREN);
     return node;
   } else {
     AstNode *left = arena_alloc(p->ast, sizeof(AstNode));

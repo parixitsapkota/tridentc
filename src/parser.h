@@ -1,6 +1,8 @@
 #ifndef _TRIDENT_PARSER_H_
 #define _TRIDENT_PARSER_H_
 
+#include <stdbool.h>
+
 #include "ast.h"
 #include "lexer.h"
 #include "trident.h"
@@ -48,7 +50,8 @@ typedef enum {
 Token *ppeak(const Parser *p);
 Token *curr(const Parser *p);
 Token *pconsume(Parser *p);
-void expect(Parser *p, TokenKind kind);
+void expect_and_consume(Parser *p, TokenKind kind);
+bool is_kind(Parser *p, TokenKind kind);
 
 AstAtom *parse_atom_f(Parser *p);
 AstNode *parse_expr_f(Parser *p, Precedence prec);
