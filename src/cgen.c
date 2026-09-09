@@ -145,9 +145,7 @@ void cgen_scope_f(Cgen *c, AstScope *scope) {
     curr = curr->next;
   }
 
-  if (scope->symtab) {
-    free_hash_set(scope->symtab);
-  }
+  free_hash_set(scope->symtab);
 }
 
 void cgen_function_s(Cgen *c) {
@@ -161,9 +159,7 @@ void cgen_function_s(Cgen *c) {
   AstNode *save_func = c->t_node;
   AstScope *body_scope = save_func->function_n->body->scope_n;
 
-  if (body_scope) {
-    cgen_scope_f(c, body_scope);
-  }
+  cgen_scope_f(c, body_scope);
 
   // Stack Frame Epilogue
   fprintf(c->file, "  mov rsp, rbp\n");

@@ -5,6 +5,9 @@
 
 // FNV-1a
 size_t hash_string(const char *str) {
+  if (!str) {
+    return 0;
+  }
   size_t hash = (size_t)14695981039346656037ULL;
   while (*str) {
     hash ^= (unsigned char)(*str++);
@@ -14,14 +17,15 @@ size_t hash_string(const char *str) {
 }
 
 static char *__hs_strdup__(const char *str) {
+  if (!str) {
+    return NULL;
+  }
   size_t len = strlen(str) + 1;
   char *copy = (char *)malloc(len);
   if (!copy) {
     return NULL;
   }
-  for (size_t i = 0; i < len; ++i) {
-    copy[i] = str[i];
-  }
+  memcpy(copy, str, len);
   return copy;
 }
 
@@ -57,7 +61,6 @@ void resize_hash_set(__hash_set__ *set, size_t new_bucket_cap) {
     return;
   }
 
-  // entries are re-threaded in place.
   for (size_t i = 0; i < set->bucket_cap; ++i) {
     __hs_entry__ *current = set->buckets[i];
     while (current != NULL) {
@@ -85,19 +88,25 @@ void put_to_hash_set(__hash_set__ *set, const char *key, void *value) {
   __hs_entry__ *current = set->buckets[index];
 
   while (current != NULL) {
-    if (current->in_use && strcmp(current->key, key) == 0) {
+    if (current->key && strcmp(current->key, key) == 0) {
       current->value = value;
       return;
     }
     current = current->next;
   }
 
-  __hs_entry__ *entry = (__hs_entry__ *)malloc(sizeof(__hs_entry__));
+  // Use calloc to prevent uninitialized fields in struct
+  __hs_entry__ *entry = (__hs_entry__ *)calloc(1, sizeof(__hs_entry__));
   if (!entry) {
     return;
   }
 
   entry->key = __hs_strdup__(key);
+  if (!entry->key) {
+    free(entry);
+    return;
+  }
+
   entry->value = value;
   entry->in_use = 1;
   entry->next = set->buckets[index];
@@ -105,7 +114,6 @@ void put_to_hash_set(__hash_set__ *set, const char *key, void *value) {
   set->buckets[index] = entry;
   ++set->count;
 
-  // cross-multiplied to dodge float division on every insert
   if ((double)set->count > (double)set->bucket_cap * SHI_HS_LOAD_FACTOR) {
     resize_hash_set(set, set->bucket_cap * 2);
   }
@@ -120,7 +128,7 @@ void *get_from_hash_set(__hash_set__ *set, const char *key) {
   __hs_entry__ *current = set->buckets[index];
 
   while (current != NULL) {
-    if (current->in_use && strcmp(current->key, key) == 0) {
+    if (current->key && strcmp(current->key, key) == 0) {
       return current->value;
     }
     current = current->next;
@@ -129,20 +137,7 @@ void *get_from_hash_set(__hash_set__ *set, const char *key) {
 }
 
 int has_in_hash_set(__hash_set__ *set, const char *key) {
-  if (!set || !key) {
-    return 0;
-  }
-
-  size_t index = hash_string(key) % set->bucket_cap;
-  __hs_entry__ *current = set->buckets[index];
-
-  while (current != NULL) {
-    if (current->in_use && strcmp(current->key, key) == 0) {
-      return 1;
-    }
-    current = current->next;
-  }
-  return 0;
+  return get_from_hash_set(set, key) != NULL;
 }
 
 int del_from_hash_set(__hash_set__ *set, const char *key) {
@@ -155,7 +150,7 @@ int del_from_hash_set(__hash_set__ *set, const char *key) {
   __hs_entry__ *prev = NULL;
 
   while (current != NULL) {
-    if (current->in_use && strcmp(current->key, key) == 0) {
+    if (current->key && strcmp(current->key, key) == 0) {
       if (prev) {
         prev->next = current->next;
       } else {
@@ -178,16 +173,20 @@ void free_hash_set(__hash_set__ *set) {
     return;
   }
 
-  for (size_t i = 0; i < set->bucket_cap; ++i) {
-    __hs_entry__ *current = set->buckets[i];
-    while (current != NULL) {
-      __hs_entry__ *temp = current->next;
-      free(current->key);
-      free(current);
-      current = temp;
+  if (set->buckets) {
+    for (size_t i = 0; i < set->bucket_cap; ++i) {
+      __hs_entry__ *current = set->buckets[i];
+      while (current != NULL) {
+        __hs_entry__ *temp = current->next;
+        if (current->key) {
+          free(current->key);
+        }
+        free(current);
+        current = temp;
+      }
     }
+    free(set->buckets);
   }
 
-  free(set->buckets);
   free(set);
 }
