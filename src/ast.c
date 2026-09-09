@@ -18,7 +18,7 @@ AstBinary *new_ast_binary(Arena *arena, AstNode *left, OpKind op, AstNode *right
   return binary;
 }
 
-AstScope *new_ast_scope(Arena *arena, Hs *symtab, AstNode *parent, AstNode *body) {
+AstScope *new_ast_scope(Arena *arena, Hs *symtab, AstScope *parent, AstNode *body) {
   AstScope *scope = arena_alloc(arena, sizeof(AstScope));
   *scope = (AstScope){.symtab = symtab, .parent = parent, .body = body};
   return scope;

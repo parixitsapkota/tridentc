@@ -46,7 +46,7 @@ typedef struct {
 typedef struct AstScope AstScope;
 struct AstScope {
   Hs *symtab;
-  AstNode *parent;
+  AstScope *parent;
   AstNode *body;
 };
 
@@ -86,7 +86,6 @@ struct AstNode {
   size_t ln;
   size_t cn;
   // for compound statements.
-  AstNode *parent;
   AstNode *next;
 };
 
@@ -97,7 +96,7 @@ typedef struct {
 AstAtom *new_ast_atom(Arena *arena, AtomKind kind, const char *value);
 AstUnary *new_ast_unary(Arena *arena, AstNode *node, TokenKind op);
 AstBinary *new_ast_binary(Arena *arena, AstNode *left, OpKind op, AstNode *right);
-AstScope *new_ast_scope(Arena *arena, Hs *symtab, AstNode *parent, AstNode *body);
+AstScope *new_ast_scope(Arena *arena, Hs *symtab, AstScope *parent, AstNode *body);
 AstFunction *new_ast_function(Arena *arena, const char *name, AstNode *body);
 
 #endif // _TRIDENT_AST_H_

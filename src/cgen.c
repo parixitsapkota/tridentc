@@ -24,7 +24,7 @@ static Offset *lookup_symbol(AstScope *scope, const char *name) {
     if (curr_scope->symtab && has_in_hash_set(curr_scope->symtab, name)) {
       return (Offset *)get_from_hash_set(curr_scope->symtab, name);
     }
-    curr_scope = curr_scope->parent->scope_n;
+    curr_scope = curr_scope->parent;
   }
   return NULL;
 }
@@ -48,8 +48,8 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
         exit(EXIT_FAILURE);
       }
 
+      fprintf(c->file, "  mov eax, dword [rbp - %zu]\n", sym->offset * 4);
       fprintf(c->file, "  sub rsp, 4\n");
-      fprintf(c->file, "  mov eax, [rbp - %zu]\n", sym->offset * 4);
       fprintf(c->file, "  mov dword [rsp], eax\n");
       break;
     }
@@ -119,9 +119,9 @@ void cgen_auto_s(Cgen *c, AstNode *node, AstScope *scope) {
 }
 
 void cgen_return_s(Cgen *c, AstScope *scope) {
-  cgen_expr_f(c, c->t_node->node, scope);
+  cgen_expr_f(c, c->t_node, scope);
   fprintf(c->file, "  mov eax, dword [rsp]\n");
-  fprintf(c->file, "  add rsp, 4\n");
+  fprintf(c->file, "  add rsp, 4\n\n");
 }
 
 void cgen_scope_f(Cgen *c, AstScope *scope) {
@@ -153,8 +153,7 @@ void cgen_function_s(Cgen *c) {
 
   // Stack Frame Prologue
   fprintf(c->file, "  push rbp\n");
-  fprintf(c->file, "  mov rbp, rsp\n");
-  fprintf(c->file, "  sub rsp, 64\n");
+  fprintf(c->file, "  mov rbp, rsp\n\n");
 
   AstNode *save_func = c->t_node;
   AstScope *body_scope = save_func->function_n->body->scope_n;

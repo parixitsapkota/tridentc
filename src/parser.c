@@ -50,8 +50,8 @@ AstNode *parse_return_s(Parser *p) {
   return return_n;
 }
 
-AstNode *parse_scope_f(Parser *p, AstNode *parent, size_t parent_stack_offset) {
-  AstNode *scope_n = arena_alloc(p->ast, sizeof(AstScope));
+AstNode *parse_scope_f(Parser *p, AstScope *parent, size_t parent_stack_offset) {
+  AstScope *scope_n = arena_alloc(p->ast, sizeof(AstScope));
   AstNode *body_head = arena_alloc(p->ast, sizeof(AstNode));
   AstNode *body_tail = body_head;
   size_t stack_offset = parent_stack_offset;
@@ -77,8 +77,10 @@ AstNode *parse_scope_f(Parser *p, AstNode *parent, size_t parent_stack_offset) {
   }
   expect(p, C_BRACE);
 
-  *scope_n = (AstNode){AST_SCOPE, .parent = parent, .node = body_head->next};
-  return scope_n;
+  *scope_n = (AstScope){.symtab = symtab, .parent = parent, .body = body_head->next};
+  AstNode *body_n = arena_alloc(p->ast, sizeof(AstNode));
+  *body_n = (AstNode){AST_SCOPE, .scope_n = scope_n};
+  return body_n;
 }
 
 AstNode *parse_function_s(Parser *p) {
