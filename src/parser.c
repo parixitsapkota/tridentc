@@ -14,6 +14,8 @@ void expect_and_consume(Parser *p, TokenKind kind);
 void add_node(AstNode **t_node, AstNode *node);
 Token *curr(const Parser *p);
 
+AstNode *parse_scope_f(Parser *p, AstScope *parent, size_t parent_stack_offset);
+
 Parser *init_parser(Lexer *l) {
   Parser *p = malloc(sizeof(Parser));
   p->i = 0;
@@ -46,6 +48,25 @@ auto_alloc: {
   expect_and_consume(p, SEMICOLON);
 }
 
+AstNode *parse_if_s(Parser *p, TokenKind statement_type, AstScope *parent,
+                    size_t parent_stack_offset) {
+  expect_and_consume(p, statement_type);
+
+  expect_and_consume(p, O_PREN);
+  AstNode *condition = parse_expr_f(p, PREC_NONE);
+  expect_and_consume(p, C_PREN);
+
+  AstNode *body = parse_scope_f(p, parent, parent_stack_offset);
+
+  AstNode *conditional_wraper = arena_alloc(p->ast, sizeof(AstNode));
+
+  AstConditional *conditional_n = arena_alloc(p->ast, sizeof(AstConditional));
+  *conditional_n = (AstConditional){.Condition = condition, .body = body};
+
+  *conditional_wraper = (AstNode){AST_IF, .conditional_n = conditional_n};
+  return conditional_wraper;
+}
+
 AstNode *parse_return_s(Parser *p) {
   expect_and_consume(p, RETURN);
 
@@ -71,8 +92,13 @@ AstNode *parse_scope_f(Parser *p, AstScope *parent, size_t parent_stack_offset) 
     }
     switch (p->tok->kind) {
     case RETURN: add_node(&body_tail, parse_return_s(p)); break;
+
     case AUTO: parse_auto_s(p, symtab, &stack_offset, &body_tail); break;
+
     case O_BRACE: add_node(&body_tail, parse_scope_f(p, scope_n, stack_offset)); break;
+
+    case IF: add_node(&body_tail, parse_if_s(p, IF, scope_n, stack_offset)); break;
+
     default: {
       AstNode *p_expr_n = parse_expr_f(p, PREC_NONE);
       AstNode *expr_n = arena_alloc(p->ast, sizeof(AstNode));

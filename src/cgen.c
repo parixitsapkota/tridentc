@@ -23,7 +23,7 @@ Cgen *init_cgen(Parser *p, const char *file_path) {
     exit(EXIT_FAILURE);
   }
 
-  c->alloc_c = 0;
+  c->lable_c = 0;
 
   return c;
 }
@@ -41,7 +41,6 @@ static Offset *lookup_symbol(AstScope *scope, const char *name) {
 
   return NULL;
 }
-
 void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
   if (!node) {
     return;
@@ -67,11 +66,14 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
       fprintf(c->file, "  mov eax, dword [rbp - %zu]\n", sym->offset * 4);
       fprintf(c->file, "  sub rsp, 4\n");
       fprintf(c->file, "  mov dword [rsp], eax\n");
-
       break;
     }
 
-    default: break;
+    default:
+      fprintf(stderr, "DEBUG atom value=%s kind=%d\n", node->atom_n->value, node->atom_n->kind);
+      fprintf(stderr, "FATAL: Unhandled atom kind (%d) in cgen_expr_f\n",
+              (int)node->atom_n->kind);
+      exit(EXIT_FAILURE);
     }
 
     return;
@@ -84,17 +86,24 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
 
       AstNode *left_node = node->binary_n->left;
 
+      // if (!left_node || left_node->kind != AST_ATOM ||
+      //     left_node->atom_n->kind != IDENTIFIER_LIT) {
+      //   fprintf(stderr, "FATAL: Left-hand side of assignment is not an identifier\n");
+      //   exit(EXIT_FAILURE);
+      // }
+
       const char *var_name = left_node->atom_n->value;
 
       Offset *sym = lookup_symbol(scope, var_name);
       if (!sym) {
         fprintf(stderr, "FATAL: Undefined variable '%s'\n", var_name);
-
         exit(EXIT_FAILURE);
       }
 
       fprintf(c->file, "  mov eax, dword [rsp]\n");
-      fprintf(c->file, "  mov dword [rbp - %zu], eax ; \"%s\"\n", sym->offset * 4, var_name);
+      fprintf(c->file, "  add rsp, 4\n"); // pop the RHS temp now that it's consumed
+      fprintf(c->file, "  mov dword [rbp - %zu], eax ; var_name : \"%s\"\n", sym->offset * 4,
+              var_name);
       return;
     }
 
@@ -108,9 +117,7 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
     switch (node->binary_n->op) {
 
     case OP_ADD: fprintf(c->file, "  add eax, ebx\n"); break;
-
     case OP_SUB: fprintf(c->file, "  sub eax, ebx\n"); break;
-
     case OP_MUL: fprintf(c->file, "  imul eax, ebx\n"); break;
 
     case OP_DEV:
@@ -124,14 +131,58 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
       fprintf(c->file, "  mov eax, edx\n");
       break;
 
-    default: break;
+    case OP_EQUAL:
+      fprintf(c->file, "  cmp eax, ebx\n");
+      fprintf(c->file, "  sete al\n");
+      fprintf(c->file, "  movzx eax, al\n");
+      break;
+
+    case OP_NOT_EQUAL:
+      fprintf(c->file, "  cmp eax, ebx\n");
+      fprintf(c->file, "  setne al\n");
+      fprintf(c->file, "  movzx eax, al\n");
+      break;
+
+    case OP_LESSER:
+      fprintf(c->file, "  cmp eax, ebx\n");
+      fprintf(c->file, "  setl al\n");
+      fprintf(c->file, "  movzx eax, al\n");
+      break;
+
+    case OP_GREATER:
+      fprintf(c->file, "  cmp eax, ebx\n");
+      fprintf(c->file, "  setg al\n");
+      fprintf(c->file, "  movzx eax, al\n");
+      break;
+
+    case OP_LESSER_EQUAL:
+      fprintf(c->file, "  cmp eax, ebx\n");
+      fprintf(c->file, "  setle al\n");
+      fprintf(c->file, "  movzx eax, al\n");
+      break;
+
+    case OP_GREATER_EQUAL:
+      fprintf(c->file, "  cmp eax, ebx\n");
+      fprintf(c->file, "  setge al\n");
+      fprintf(c->file, "  movzx eax, al\n");
+      break;
+
+    default:
+      fprintf(stderr, "FATAL: Unhandled binary op (%d) in cgen_expr_f\n",
+              (int)node->binary_n->op);
+      exit(EXIT_FAILURE);
     }
 
     fprintf(c->file, "  sub rsp, 4\n");
     fprintf(c->file, "  mov dword [rsp], eax\n");
     return;
   }
+
+  fprintf(stderr, "FATAL: Unhandled node kind (%d) in cgen_expr_f\n", (int)node->kind);
+  exit(EXIT_FAILURE);
 }
+
+void cgen_scope_f(Cgen *c, AstScope *scope);
 
 void cgen_auto_s(Cgen *c) {
   fprintf(c->file, "  sub rsp, 4\n");
@@ -145,13 +196,33 @@ void cgen_return_s(Cgen *c, AstScope *scope) {
   }
 
   if (!c->t_node->node) {
-    fprintf(stderr, "FATAL: Return statement has no expression\n");
-    exit(EXIT_FAILURE);
+    fprintf(c->file, "  mov rsp, rbp\n");
+    fprintf(c->file, "  pop rbp\n");
+    fprintf(c->file, "  ret\n");
+    return;
   }
 
   cgen_expr_f(c, c->t_node->node, scope);
   fprintf(c->file, "  mov eax, dword [rsp]\n");
-  fprintf(c->file, "  add rsp, 4\n\n");
+  fprintf(c->file, "  add rsp, 4\n");
+  fprintf(c->file, "  mov rsp, rbp\n");
+  fprintf(c->file, "  pop rbp\n");
+  fprintf(c->file, "  ret\n");
+}
+
+void cgen_if_s(Cgen *c, AstScope *scope) {
+  cgen_expr_f(c, c->t_node->conditional_n->Condition, scope);
+
+  fprintf(c->file, "  mov eax, dword [rsp]\n");
+  fprintf(c->file, "  add rsp, 4\n");
+  fprintf(c->file, "  cmp eax, 0\n");
+  fprintf(c->file, "  je .__if_end_%zu\n", c->lable_c);
+
+  cgen_scope_f(c, c->t_node->conditional_n->body->scope_n);
+
+  fprintf(c->file, ".__if_end_%zu:\n", c->lable_c);
+
+  c->lable_c++;
 }
 
 void cgen_scope_f(Cgen *c, AstScope *scope) {
@@ -176,6 +247,8 @@ void cgen_scope_f(Cgen *c, AstScope *scope) {
 
     case AST_SCOPE: cgen_scope_f(c, curr->scope_n); break;
 
+    case AST_IF: cgen_if_s(c, curr->conditional_n->body->scope_n->parent); break;
+
     default: break;
     }
     curr = curr->next;
@@ -187,19 +260,17 @@ void cgen_scope_f(Cgen *c, AstScope *scope) {
 }
 
 void cgen_function_s(Cgen *c) {
+  c->lable_c = 0;
 
   fprintf(c->file, "%s:\n", c->t_node->function_n->name);
-  fprintf(c->file, "  push rbp\n"
-                   "  mov rbp, rsp\n\n");
+  fprintf(c->file, "  push rbp\n");
+  fprintf(c->file, "  mov rbp, rsp\n");
 
   AstNode *save_func = c->t_node;
   AstScope *body_scope = save_func->function_n->body->scope_n;
 
   cgen_scope_f(c, body_scope);
-
-  fprintf(c->file, "  mov rsp, rbp\n"
-                   "  pop rbp\n"
-                   "  ret\n\n");
+  fprintf(c->file, "\n");
 
   c->t_node = save_func->next;
 }
@@ -214,17 +285,16 @@ void cgen(Cgen *c) {
 
 #elif defined(__MacOS__) || defined(_XOS)
 
-  fprintf(c->file, "global _main\n"
-                   "extern _exit\n");
+  fprintf(c->file, "global _main\n");
+  fprintf(c->file, "extern _exit\n");
 
 #elif defined(__FreeBSD__) || defined(_BSD)
 
   fprintf(c->file, "global _start\n");
 
 #elif defined(__Windows__) || defined(_WIN32)
-
   fprintf(c->file, "global mainCRTStartup\n"
-                   "extern ExitProcess\n");
+  fprintf(c->file, "extern ExitProcess\n");
 
 #endif
 
@@ -233,40 +303,41 @@ void cgen(Cgen *c) {
     if (c->t_node->kind == AST_FUNCTION) {
       cgen_function_s(c);
     } else {
+      fprintf(stderr, "FAITAL : Invalid statement!\n");
       c->t_node = c->t_node->next;
     }
   }
 
 #if defined(__linux__) || defined(_TUX)
 
-  fprintf(c->file, "_start:\n"
-                   "  call main\n"
-                   "  mov rdi, rax\n"
-                   "  mov rax, 0x3C\n"
-                   "  syscall\n");
+  fprintf(c->file, "_start:\n");
+  fprintf(c->file, "  call main\n");
+  fprintf(c->file, "  mov rdi, rax\n");
+  fprintf(c->file, "  mov rax, 0x3C\n");
+  fprintf(c->file, "  syscall\n");
 
 #elif defined(__MacOS__) || defined(_XOS)
 
-  fprintf(c->file, "_main:\n"
-                   "  call _main_impl\n"
-                   "  mov rdi, rax\n"
-                   "  call _exit\n");
+  fprintf(c->file, "_main:\n");
+  fprintf(c->file, "  call _main_impl\n");
+  fprintf(c->file, "  mov rdi, rax\n");
+  fprintf(c->file, "  call _exit\n");
 
 #elif defined(__FreeBSD__) || defined(_BSD)
 
-  fprintf(c->file, "_start:\n"
-                   "  call main\n"
-                   "  mov rdi, rax\n"
-                   "  mov rax, 1\n"
-                   "  sysenter\n");
+  fprintf(c->file, "_start:\n");
+  fprintf(c->file, "  call main\n");
+  fprintf(c->file, "  mov rdi, rax\n");
+  fprintf(c->file, "  mov rax, 1\n");
+  fprintf(c->file, "  sysenter\n");
 
 #elif defined(__Windows__) || defined(_WIN32)
 
-  fprintf(c->file, "mainCRTStartup:\n"
-                   "  sub rsp, 40\n"
-                   "  call main\n"
-                   "  mov rcx, rax\n"
-                   "  call ExitProcess\n");
+  fprintf(c->file, "mainCRTStartup:\n");
+  fprintf(c->file, "  sub rsp, 40\n");
+  fprintf(c->file, "  call main\n");
+  fprintf(c->file, "  mov rcx, rax\n");
+  fprintf(c->file, "  call ExitProcess\n");
 
 #endif
 }

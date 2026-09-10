@@ -29,3 +29,9 @@ AstFunction *new_ast_function(Arena *arena, const char *name, AstNode *body) {
   *function = (AstFunction){.name = name, .body = body};
   return function;
 }
+
+AstConditional *new_ast_conditional(Arena *arena, AstNode *Condition, AstNode *body) {
+  AstConditional *if_n = arena_alloc(arena, sizeof(AstConditional));
+  *if_n = (AstConditional){.Condition = Condition, .body = body};
+  return if_n;
+}

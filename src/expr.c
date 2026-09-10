@@ -11,6 +11,7 @@ AtomKind get_atom_kind(TokenKind kind) {
   case FLOAT: return FLOAT_LIT;
   case STRING: return STRING_LIT;
   case CHARACTER: return CHARACTER_LIT;
+  case IDENTIFIER: return IDENTIFIER_LIT;
 
   default: return UNKNOWN_LIT;
   }
@@ -77,6 +78,15 @@ OpKind get_op(TokenKind kind) {
   case DEV: return OP_DEV;
   case MOD: return OP_MOD;
   case ASSIGN: return OP_ASSIGN;
+  case AND: return OP_AND;
+  case OR: return OP_OR;
+  case XOR: return OP_XOR;
+  case EQUAL: return OP_EQUAL;
+  case NOT_EQUAL: return OP_NOT_EQUAL;
+  case LESSER: return OP_LESSER;
+  case GREATER: return OP_GREATER;
+  case LESSER_EQUAL: return OP_LESSER_EQUAL;
+  case GREATER_EQUAL: return OP_GREATER_EQUAL;
 
   default: return OP_NONE;
   }

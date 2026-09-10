@@ -14,12 +14,12 @@ typedef struct {
 
 static AstPrinter *init_ap(Parser *p) {
   AstPrinter *ap = malloc(sizeof(*ap));
-
   if (!ap) {
     return NULL;
   }
 
   ap->p = p;
+
   return ap;
 }
 
@@ -37,7 +37,6 @@ static char *make_child_prefix(const char *prefix, bool is_last) {
   size_t branch_len = strlen(branch);
 
   char *child_prefix = malloc(len + branch_len + 1);
-
   if (!child_prefix) {
     return NULL;
   }
@@ -54,19 +53,17 @@ static char *make_child_prefix(const char *prefix, bool is_last) {
 
 static void print_node_name(const AstNode *node) {
   fprintf(stdout, FG_MAGENTA);
+
   switch (node->kind) {
   case AST_RETURN: fprintf(stdout, "AST_RETURN\n"); break;
-
   case AST_AUTO: fprintf(stdout, "AST_AUTO\n"); break;
-
   case AST_EXPR: fprintf(stdout, "AST_EXPR\n"); break;
-
   case AST_SCOPE: fprintf(stdout, "AST_SCOPE\n"); break;
-
   case AST_FUNCTION: fprintf(stdout, "AST_FUNCTION\n"); break;
-
+  case AST_IF: fprintf(stdout, "AST_IF\n"); break;
   default: fprintf(stdout, "AST_UNKNOWN\n"); break;
   }
+
   fprintf(stdout, RESET);
 }
 
@@ -91,6 +88,18 @@ static void ap_scope_f(AstPrinter *ap, AstScope *scope, const char *prefix) {
         ap_scope_f(ap, curr->scope_n, child_prefix);
         free(child_prefix);
       }
+
+    } else if (curr->kind == AST_IF) {
+      fprintf(stdout, FG_MAGENTA "AST_IF\n" RESET);
+
+      char *child_prefix = make_child_prefix(prefix, is_last);
+
+      if (child_prefix && curr->conditional_n && curr->conditional_n->body) {
+        ap_scope_f(ap, curr->conditional_n->body->scope_n, child_prefix);
+      }
+
+      free(child_prefix);
+
     } else {
       print_node_name(curr);
     }
