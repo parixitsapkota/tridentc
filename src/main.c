@@ -38,7 +38,7 @@ int main(int argc, char *argv[]) {
   Cgen *c = init_cgen(p, out_file_path);
 
   cgen(c);
-  
+
   // print_ast(p);
 
   free_parser(p);

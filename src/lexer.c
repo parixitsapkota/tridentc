@@ -39,6 +39,7 @@ Lexer *init_lexer(const char *file, const char *buffer, size_t buf_len) {
 
 void lexer(Lexer *l) {
   l->tok_head = arena_alloc(l->tokens, sizeof(Token));
+  l->tok_head->next = NULL;
   l->t_token = l->tok_head;
 
   while (l->i < l->buf_len) {
@@ -103,31 +104,54 @@ void lexer(Lexer *l) {
         char *word = get_string_ident(l);
         add_token(l, (Token){IDENTIFIER, word, l->ln, l->t_cn, NULL});
       } else {
-        char *lable = get_word(l);
-        add_token(l, (Token){LABLE, lable, l->ln, l->t_cn, NULL});
+        char *label = get_word(l);
+
+        add_token(l, (Token){LABLE, label, l->ln, l->t_cn, NULL});
       }
       continue;
     }
 
+#define CASE_1(a, out_a)                                                                         \
+  case a: kind = out_a; break
+
+#define CASE_2(a, b, out_a, out_a_b)                                                             \
+  case a:                                                                                        \
+    if (peak(l, 1) == (b)) {                                                                     \
+      kind = (out_a_b);                                                                          \
+      consume(l);                                                                                \
+    } else {                                                                                     \
+      kind = (out_a);                                                                            \
+    }                                                                                            \
+    break
+
     {
-      // Handle operators and separators.
       TokenKind kind;
+
       switch (c) {
-      case '{': kind = O_BRACE; break;
-      case '}': kind = C_BRACE; break;
-      case '[': kind = O_BRACKET; break;
-      case ']': kind = C_BRACKET; break;
-      case '(': kind = O_PREN; break;
-      case ')': kind = C_PREN; break;
-      case ';': kind = SEMICOLON; break;
-      case ',': kind = COMMA; break;
-      case '.': kind = DOT; break;
-      case '+': kind = ADD; break;
-      case '-': kind = SUB; break;
-      case '*': kind = MUL; break;
-      case '/': kind = DEV; break;
-      case '%': kind = MOD; break;
-      case '=': kind = ASSIGN; break;
+        CASE_1('{', O_BRACE);
+        CASE_1('}', C_BRACE);
+        CASE_1('[', O_BRACKET);
+        CASE_1(']', C_BRACKET);
+        CASE_1('(', O_PREN);
+        CASE_1(')', C_PREN);
+        CASE_1(';', SEMICOLON);
+        CASE_1(',', COMMA);
+        CASE_1('.', DOT);
+        CASE_1('+', ADD);
+        CASE_1('-', SUB);
+        CASE_1('*', MUL);
+        CASE_1('/', DEV);
+        CASE_1('%', MOD);
+
+        CASE_2('=', '=', ASSIGN, EQUAL);
+        CASE_2('!', '=', NOT, NOT_EQUAL);
+        CASE_2('<', '=', LESSER, LESSER_EQUAL);
+        CASE_2('>', '=', GREATER, GREATER_EQUAL);
+
+        CASE_2('&', '&', UNKNOWN, AND);
+        CASE_2('|', '|', UNKNOWN, OR);
+        CASE_2('~', '~', UNKNOWN, XOR);
+
       default: kind = UNKNOWN;
       }
       if (kind == UNKNOWN) {

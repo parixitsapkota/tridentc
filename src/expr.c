@@ -37,19 +37,34 @@ bool is_proc_left_Associative(Precedence prec) {
 
 Precedence get_op_prec(TokenKind kind) {
   switch (kind) {
-  case MUL:
-  case DEV:
-  case MOD: return PREC_MULTIPLICATIVE;
+  case COMMA: return PREC_COMMA;
+
+  case ASSIGN: return PREC_ASSIGNMENT;
+
+  case OR: return PREC_OR;
+
+  case XOR: return PREC_XOR;
+
+  case AND: return PREC_AND;
+
+  case LESSER:
+  case GREATER:
+  case LESSER_EQUAL:
+  case GREATER_EQUAL: return PREC_RELATIVE;
+
+  case EQUAL:
+  case NOT_EQUAL: return PREC_COMPARITIVE;
 
   case ADD:
   case SUB: return PREC_ADDITIVE;
 
-  case ASSIGN: return PREC_ASSIGNMENT;
-
-  case COMMA: return PREC_COMMA;
+  case MUL:
+  case DEV:
+  case MOD: return PREC_MULTIPLICATIVE;
 
   case C_PREN:
   case SEMICOLON: return PREC_NONE;
+
   default: return PREC_UNKNOWN;
   }
 }
@@ -97,8 +112,8 @@ AstNode *parse_expr_f(Parser *p, Precedence prec) {
 
     if (op_prec == PREC_UNKNOWN) {
       Token *tok = curr(p);
-      fprintf(stderr, "%s:%zu:%zu: Unknown operator `%d`.\n", p->l->file, tok->ln, tok->cn,
-              tok->kind);
+      fprintf(stderr, "%s:%zu:%zu: Unknown operator `%s`.\n", p->l->file, tok->ln, tok->cn,
+              token_kind_to_str(tok->kind));
     }
 
     if (op_prec == PREC_NONE || op_prec < prec) {

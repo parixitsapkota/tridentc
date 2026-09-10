@@ -35,6 +35,7 @@ typedef enum {
   SEMICOLON, // `;`
 
   // Operator
+  NOT,    // `!`
   COMMA,  // `,`
   DOT,    // `.`
   ADD,    // `+`
@@ -44,6 +45,16 @@ typedef enum {
   MOD,    // `%`
   ASSIGN, // `=`
 
+  AND, // `&&`
+  OR,  // `||`
+  XOR, // `~~`
+
+  EQUAL,         // `==`
+  NOT_EQUAL,     // `!=`
+  LESSER,        // `<`
+  GREATER,       // `>`
+  LESSER_EQUAL,  // `<=`
+  GREATER_EQUAL, // `>=`
 } TokenKind;
 
 // Token Defination
