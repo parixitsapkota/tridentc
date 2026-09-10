@@ -30,8 +30,8 @@ AstFunction *new_ast_function(Arena *arena, const char *name, AstNode *body) {
   return function;
 }
 
-AstConditional *new_ast_conditional(Arena *arena, AstNode *Condition, AstNode *body) {
-  AstConditional *if_n = arena_alloc(arena, sizeof(AstConditional));
-  *if_n = (AstConditional){.Condition = Condition, .body = body};
+AstIf *new_ast_conditional(Arena *arena, AstNode *Condition, AstNode *body, AstNode *chain) {
+  AstIf *if_n = arena_alloc(arena, sizeof(AstIf));
+  *if_n = (AstIf){.Condition = Condition, .body = body, .chain = chain};
   return if_n;
 }

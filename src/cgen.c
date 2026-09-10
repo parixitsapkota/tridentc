@@ -210,19 +210,45 @@ void cgen_return_s(Cgen *c, AstScope *scope) {
   fprintf(c->file, "  ret\n");
 }
 
-void cgen_if_s(Cgen *c, AstScope *scope) {
-  cgen_expr_f(c, c->t_node->conditional_n->Condition, scope);
+static void cgen_if_chain_s(Cgen *c, AstNode *curr, AstScope *scope, size_t end_label) {
+  if (!curr) {
+    return;
+  }
 
-  fprintf(c->file, "  mov eax, dword [rsp]\n");
-  fprintf(c->file, "  add rsp, 4\n");
-  fprintf(c->file, "  cmp eax, 0\n");
-  fprintf(c->file, "  je .__if_end_%zu\n", c->lable_c);
+  if (curr->kind == AST_IF || curr->kind == AST_ELSE_IF) {
+    size_t next_label = c->lable_c++;
 
-  cgen_scope_f(c, c->t_node->conditional_n->body->scope_n);
+    cgen_expr_f(c, curr->if_n->Condition, scope);
 
-  fprintf(c->file, ".__if_end_%zu:\n", c->lable_c);
+    fprintf(c->file, "  mov eax, dword [rsp]\n");
+    fprintf(c->file, "  add rsp, 4\n");
+    fprintf(c->file, "  cmp eax, 0\n");
+    fprintf(c->file, "  je .L_if_next_%zu\n", next_label);
 
-  c->lable_c++;
+    if (curr->if_n->body && curr->if_n->body->kind == AST_SCOPE) {
+      cgen_scope_f(c, curr->if_n->body->scope_n);
+    }
+
+    fprintf(c->file, "  jmp .L_if_end_%zu\n", end_label);
+
+    fprintf(c->file, ".L_if_next_%zu:\n", next_label);
+
+    if (curr->if_n->chain) {
+      cgen_if_chain_s(c, curr->if_n->chain, scope, end_label);
+    }
+  } else if (curr->kind == AST_ELSE) {
+    if (curr->scope_n) {
+      cgen_scope_f(c, curr->scope_n);
+    }
+  }
+}
+
+void cgen_if_s(Cgen *c, AstNode *node, AstScope *scope) {
+  size_t end_label = c->lable_c++;
+
+  cgen_if_chain_s(c, node, scope, end_label);
+
+  fprintf(c->file, ".L_if_end_%zu:\n", end_label);
 }
 
 void cgen_scope_f(Cgen *c, AstScope *scope) {
@@ -247,7 +273,7 @@ void cgen_scope_f(Cgen *c, AstScope *scope) {
 
     case AST_SCOPE: cgen_scope_f(c, curr->scope_n); break;
 
-    case AST_IF: cgen_if_s(c, curr->conditional_n->body->scope_n->parent); break;
+    case AST_IF: cgen_if_s(c, curr, curr->if_n->body->scope_n->parent); break;
 
     default: break;
     }

@@ -67,7 +67,8 @@ typedef struct {
 typedef struct {
   AstNode *Condition;
   AstNode *body;
-} AstConditional;
+  AstNode *chain;
+} AstIf;
 
 typedef enum {
   AST_ATOM,
@@ -94,7 +95,7 @@ struct AstNode {
     AstBinary *binary_n;
     AstScope *scope_n;
     AstFunction *function_n;
-    AstConditional *conditional_n;
+    AstIf *if_n;
     AstNode *node;
   };
   // Position
@@ -113,6 +114,6 @@ AstUnary *new_ast_unary(Arena *arena, AstNode *node, TokenKind op);
 AstBinary *new_ast_binary(Arena *arena, AstNode *left, OpKind op, AstNode *right);
 AstScope *new_ast_scope(Arena *arena, Hs *symtab, AstScope *parent, AstNode *body);
 AstFunction *new_ast_function(Arena *arena, const char *name, AstNode *body);
-AstConditional *new_ast_if(Arena *arena, AstNode *Condition, AstNode *body);
+AstIf *new_ast_if(Arena *arena, AstNode *Condition, AstNode *body, AstNode *chain);
 
 #endif // _TRIDENT_AST_H_

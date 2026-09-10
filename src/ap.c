@@ -19,21 +19,21 @@ static AstPrinter *init_ap(Parser *p) {
   }
 
   ap->p = p;
-
   return ap;
 }
 
-static void print_prefix(const char *prefix, bool is_last) {
+// Clean uniform prefix without backtick branches
+static void print_prefix(const char *prefix) {
   if (prefix) {
     fputs(prefix, stdout);
   }
-
-  fputs(is_last ? FG_BLUE "`-- " RESET : FG_BLUE "+-- " RESET, stdout);
+  fputs(FG_BLUE "+-- " RESET, stdout);
 }
 
-static char *make_child_prefix(const char *prefix, bool is_last) {
+// Static vertical guide line for nested nodes
+static char *make_child_prefix(const char *prefix) {
   size_t len = prefix ? strlen(prefix) : 0;
-  const char *branch = is_last ? "    " : FG_BLUE "|  " RESET;
+  const char *branch = FG_BLUE "|    " RESET;
   size_t branch_len = strlen(branch);
 
   char *child_prefix = malloc(len + branch_len + 1);
@@ -61,10 +61,54 @@ static void print_node_name(const AstNode *node) {
   case AST_SCOPE: fprintf(stdout, "AST_SCOPE\n"); break;
   case AST_FUNCTION: fprintf(stdout, "AST_FUNCTION\n"); break;
   case AST_IF: fprintf(stdout, "AST_IF\n"); break;
+  case AST_ELSE_IF: fprintf(stdout, "AST_ELSE_IF\n"); break;
+  case AST_ELSE: fprintf(stdout, "AST_ELSE\n"); break;
   default: fprintf(stdout, "AST_UNKNOWN\n"); break;
   }
 
   fprintf(stdout, RESET);
+}
+
+static void ap_scope_f(AstPrinter *ap, AstScope *scope, const char *prefix);
+
+static void ap_if_s(AstPrinter *ap, AstNode *curr, const char *prefix) {
+  if (!curr) {
+    return;
+  }
+
+  // Print node header for chain nodes
+  if (curr->kind == AST_IF) {
+    fprintf(stdout, FG_MAGENTA "AST_IF\n" RESET);
+  } else if (curr->kind == AST_ELSE_IF) {
+    print_prefix(prefix);
+    fprintf(stdout, FG_MAGENTA "AST_ELSE_IF\n" RESET);
+  } else if (curr->kind == AST_ELSE) {
+    print_prefix(prefix);
+    fprintf(stdout, FG_MAGENTA "AST_ELSE\n" RESET);
+  }
+
+  char *child_prefix = make_child_prefix(prefix);
+
+  if (curr->kind == AST_IF || curr->kind == AST_ELSE_IF) {
+    if (child_prefix && curr->if_n) {
+      if (curr->if_n->body && curr->if_n->body->kind == AST_SCOPE) {
+        ap_scope_f(ap, curr->if_n->body->scope_n, child_prefix);
+      }
+
+      free(child_prefix);
+
+      if (curr->if_n->chain) {
+        ap_if_s(ap, curr->if_n->chain, prefix);
+      }
+    } else {
+      free(child_prefix);
+    }
+  } else if (curr->kind == AST_ELSE) {
+    if (child_prefix && curr->scope_n) {
+      ap_scope_f(ap, curr->scope_n, child_prefix);
+    }
+    free(child_prefix);
+  }
 }
 
 static void ap_scope_f(AstPrinter *ap, AstScope *scope, const char *prefix) {
@@ -75,32 +119,21 @@ static void ap_scope_f(AstPrinter *ap, AstScope *scope, const char *prefix) {
   AstNode *curr = scope->body;
 
   while (curr) {
-    bool is_last = (curr->next == NULL);
-
-    print_prefix(prefix, is_last);
-
     if (curr->kind == AST_SCOPE) {
+      print_prefix(prefix);
       fprintf(stdout, FG_MAGENTA "AST_SCOPE\n" RESET);
 
-      char *child_prefix = make_child_prefix(prefix, is_last);
-
+      char *child_prefix = make_child_prefix(prefix);
       if (child_prefix) {
         ap_scope_f(ap, curr->scope_n, child_prefix);
         free(child_prefix);
       }
 
     } else if (curr->kind == AST_IF) {
-      fprintf(stdout, FG_MAGENTA "AST_IF\n" RESET);
-
-      char *child_prefix = make_child_prefix(prefix, is_last);
-
-      if (child_prefix && curr->conditional_n && curr->conditional_n->body) {
-        ap_scope_f(ap, curr->conditional_n->body->scope_n, child_prefix);
-      }
-
-      free(child_prefix);
-
+      print_prefix(prefix);
+      ap_if_s(ap, curr, prefix);
     } else {
+      print_prefix(prefix);
       print_node_name(curr);
     }
 

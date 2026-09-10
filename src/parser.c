@@ -48,9 +48,9 @@ auto_alloc: {
   expect_and_consume(p, SEMICOLON);
 }
 
-AstNode *parse_if_s(Parser *p, TokenKind statement_type, AstScope *parent,
+AstNode *parse_if_s(Parser *p, AstKind statenemt_kind, AstScope *parent,
                     size_t parent_stack_offset) {
-  expect_and_consume(p, statement_type);
+  expect_and_consume(p, IF);
 
   expect_and_consume(p, O_PREN);
   AstNode *condition = parse_expr_f(p, PREC_NONE);
@@ -58,13 +58,27 @@ AstNode *parse_if_s(Parser *p, TokenKind statement_type, AstScope *parent,
 
   AstNode *body = parse_scope_f(p, parent, parent_stack_offset);
 
-  AstNode *conditional_wraper = arena_alloc(p->ast, sizeof(AstNode));
+  // parse chain
+  AstNode *chain = NULL;
+  if (is_kind(p, ELSE)) {
+    pconsume(p);
+    if (is_kind(p, IF)) {
+      chain = parse_if_s(p, AST_ELSE_IF, parent, parent_stack_offset);
+    } else {
+      AstNode *else_body = parse_scope_f(p, parent, parent_stack_offset);
 
-  AstConditional *conditional_n = arena_alloc(p->ast, sizeof(AstConditional));
-  *conditional_n = (AstConditional){.Condition = condition, .body = body};
+      chain = arena_alloc(p->ast, sizeof(AstNode));
+      *chain = (AstNode){AST_ELSE, .scope_n = else_body->scope_n};
+    }
+  }
 
-  *conditional_wraper = (AstNode){AST_IF, .conditional_n = conditional_n};
-  return conditional_wraper;
+  AstNode *if_wraper = arena_alloc(p->ast, sizeof(AstNode));
+
+  AstIf *if_n = arena_alloc(p->ast, sizeof(AstIf));
+  *if_n = (AstIf){.Condition = condition, .body = body, .chain = chain};
+
+  *if_wraper = (AstNode){statenemt_kind, .if_n = if_n};
+  return if_wraper;
 }
 
 AstNode *parse_return_s(Parser *p) {
@@ -97,7 +111,7 @@ AstNode *parse_scope_f(Parser *p, AstScope *parent, size_t parent_stack_offset) 
 
     case O_BRACE: add_node(&body_tail, parse_scope_f(p, scope_n, stack_offset)); break;
 
-    case IF: add_node(&body_tail, parse_if_s(p, IF, scope_n, stack_offset)); break;
+    case IF: add_node(&body_tail, parse_if_s(p, AST_IF, scope_n, stack_offset)); break;
 
     default: {
       AstNode *p_expr_n = parse_expr_f(p, PREC_NONE);
