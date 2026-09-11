@@ -12,7 +12,8 @@ typedef struct {
   const char *file_path;
   FILE *file;
   // Lable counter
-  size_t lable_c;
+  size_t if_lable_c;
+  size_t while_lable_c;
   // Helper/Temp vars
   AstNode *t_node;
 } Cgen;

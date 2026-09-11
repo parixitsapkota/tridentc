@@ -23,7 +23,8 @@ Cgen *init_cgen(Parser *p, const char *file_path) {
     exit(EXIT_FAILURE);
   }
 
-  c->lable_c = 0;
+  c->if_lable_c = 0;
+  c->while_lable_c = 0;
 
   return c;
 }
@@ -86,12 +87,6 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
 
       AstNode *left_node = node->binary_n->left;
 
-      // if (!left_node || left_node->kind != AST_ATOM ||
-      //     left_node->atom_n->kind != IDENTIFIER_LIT) {
-      //   fprintf(stderr, "FATAL: Left-hand side of assignment is not an identifier\n");
-      //   exit(EXIT_FAILURE);
-      // }
-
       const char *var_name = left_node->atom_n->value;
 
       Offset *sym = lookup_symbol(scope, var_name);
@@ -101,7 +96,6 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
       }
 
       fprintf(c->file, "  mov eax, dword [rsp]\n");
-      fprintf(c->file, "  add rsp, 4\n"); // pop the RHS temp now that it's consumed
       fprintf(c->file, "  mov dword [rbp - %zu], eax ; var_name : \"%s\"\n", sym->offset * 4,
               var_name);
       return;
@@ -216,7 +210,7 @@ static void cgen_if_chain_s(Cgen *c, AstNode *curr, AstScope *scope, size_t end_
   }
 
   if (curr->kind == AST_IF || curr->kind == AST_ELSE_IF) {
-    size_t next_label = c->lable_c++;
+    size_t next_label = ++(c->if_lable_c);
 
     cgen_expr_f(c, curr->if_n->Condition, scope);
 
@@ -244,11 +238,31 @@ static void cgen_if_chain_s(Cgen *c, AstNode *curr, AstScope *scope, size_t end_
 }
 
 void cgen_if_s(Cgen *c, AstNode *node, AstScope *scope) {
-  size_t end_label = c->lable_c++;
+  size_t end_label = ++(c->if_lable_c);
 
   cgen_if_chain_s(c, node, scope, end_label);
 
   fprintf(c->file, ".L_if_end_%zu:\n", end_label);
+}
+
+void cgen_while_s(Cgen *c, AstNode *node, AstScope *scope) {
+  size_t label_id = ++(c->while_lable_c);
+
+  fprintf(c->file, ".L_while_condition_%zu:\n", label_id);
+
+  cgen_expr_f(c, node->while_n->Condition, scope);
+
+  fprintf(c->file, "  mov eax, dword [rsp]\n");
+  fprintf(c->file, "  add rsp, 4\n");
+  fprintf(c->file, "  cmp eax, 0\n");
+  fprintf(c->file, "  je .L_while_end_%zu\n", label_id);
+
+  if (node->while_n->body && node->while_n->body->kind == AST_SCOPE) {
+    cgen_scope_f(c, node->while_n->body->scope_n);
+  }
+
+  fprintf(c->file, "  jmp .L_while_condition_%zu\n", label_id);
+  fprintf(c->file, ".L_while_end_%zu:\n", label_id);
 }
 
 void cgen_scope_f(Cgen *c, AstScope *scope) {
@@ -275,6 +289,8 @@ void cgen_scope_f(Cgen *c, AstScope *scope) {
 
     case AST_IF: cgen_if_s(c, curr, curr->if_n->body->scope_n->parent); break;
 
+    case AST_WHILE: cgen_while_s(c, curr, curr->while_n->body->scope_n->parent); break;
+
     default: break;
     }
     curr = curr->next;
@@ -286,7 +302,7 @@ void cgen_scope_f(Cgen *c, AstScope *scope) {
 }
 
 void cgen_function_s(Cgen *c) {
-  c->lable_c = 0;
+  c->if_lable_c = 0;
 
   fprintf(c->file, "%s:\n", c->t_node->function_n->name);
   fprintf(c->file, "  push rbp\n");

@@ -81,6 +81,24 @@ AstNode *parse_if_s(Parser *p, AstKind statenemt_kind, AstScope *parent,
   return if_wraper;
 }
 
+AstNode *parse_while_s(Parser *p, AstScope *parent, size_t parent_stack_offset) {
+  expect_and_consume(p, WHILE);
+
+  expect_and_consume(p, O_PREN);
+  AstNode *condition = parse_expr_f(p, PREC_NONE);
+  expect_and_consume(p, C_PREN);
+
+  AstNode *body = parse_scope_f(p, parent, parent_stack_offset);
+
+  AstNode *while_wraper = arena_alloc(p->ast, sizeof(AstNode));
+
+  AstWhile *while_n = arena_alloc(p->ast, sizeof(AstWhile));
+  *while_n = (AstWhile){.Condition = condition, .body = body};
+
+  *while_wraper = (AstNode){AST_WHILE, .while_n = while_n};
+  return while_wraper;
+}
+
 AstNode *parse_return_s(Parser *p) {
   expect_and_consume(p, RETURN);
 
@@ -112,6 +130,8 @@ AstNode *parse_scope_f(Parser *p, AstScope *parent, size_t parent_stack_offset) 
     case O_BRACE: add_node(&body_tail, parse_scope_f(p, scope_n, stack_offset)); break;
 
     case IF: add_node(&body_tail, parse_if_s(p, AST_IF, scope_n, stack_offset)); break;
+
+    case WHILE: add_node(&body_tail, parse_while_s(p, scope_n, stack_offset)); break;
 
     default: {
       AstNode *p_expr_n = parse_expr_f(p, PREC_NONE);

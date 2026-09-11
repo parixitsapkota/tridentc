@@ -22,7 +22,6 @@ static AstPrinter *init_ap(Parser *p) {
   return ap;
 }
 
-// Clean uniform prefix without backtick branches
 static void print_prefix(const char *prefix) {
   if (prefix) {
     fputs(prefix, stdout);
@@ -30,7 +29,6 @@ static void print_prefix(const char *prefix) {
   fputs(FG_BLUE "+-- " RESET, stdout);
 }
 
-// Static vertical guide line for nested nodes
 static char *make_child_prefix(const char *prefix) {
   size_t len = prefix ? strlen(prefix) : 0;
   const char *branch = FG_BLUE "|    " RESET;
@@ -76,7 +74,6 @@ static void ap_if_s(AstPrinter *ap, AstNode *curr, const char *prefix) {
     return;
   }
 
-  // Print node header for chain nodes
   if (curr->kind == AST_IF) {
     fprintf(stdout, FG_MAGENTA "AST_IF\n" RESET);
   } else if (curr->kind == AST_ELSE_IF) {
@@ -111,6 +108,26 @@ static void ap_if_s(AstPrinter *ap, AstNode *curr, const char *prefix) {
   }
 }
 
+static void ap_while_s(AstPrinter *ap, AstNode *curr, const char *prefix) {
+  if (!curr) {
+    return;
+  }
+
+  fprintf(stdout, FG_MAGENTA "AST_WHILE\n" RESET);
+
+  char *child_prefix = make_child_prefix(prefix);
+
+  if (child_prefix && curr->while_n) {
+    if (curr->while_n->body && curr->while_n->body->kind == AST_SCOPE) {
+      ap_scope_f(ap, curr->while_n->body->scope_n, child_prefix);
+    }
+
+    free(child_prefix);
+  } else {
+    free(child_prefix);
+  }
+}
+
 static void ap_scope_f(AstPrinter *ap, AstScope *scope, const char *prefix) {
   if (!scope) {
     return;
@@ -132,6 +149,9 @@ static void ap_scope_f(AstPrinter *ap, AstScope *scope, const char *prefix) {
     } else if (curr->kind == AST_IF) {
       print_prefix(prefix);
       ap_if_s(ap, curr, prefix);
+    } else if (curr->kind == AST_WHILE) {
+      print_prefix(prefix);
+      ap_while_s(ap, curr, prefix);
     } else {
       print_prefix(prefix);
       print_node_name(curr);

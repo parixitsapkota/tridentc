@@ -70,6 +70,11 @@ typedef struct {
   AstNode *chain;
 } AstIf;
 
+typedef struct {
+  AstNode *Condition;
+  AstNode *body;
+} AstWhile;
+
 typedef enum {
   AST_ATOM,
   AST_UNARY,
@@ -96,6 +101,7 @@ struct AstNode {
     AstScope *scope_n;
     AstFunction *function_n;
     AstIf *if_n;
+    AstWhile *while_n;
     AstNode *node;
   };
   // Position
