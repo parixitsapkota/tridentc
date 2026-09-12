@@ -135,6 +135,7 @@ void lexer(Lexer *l) {
         CASE_1('(', O_PREN);
         CASE_1(')', C_PREN);
         CASE_1(';', SEMICOLON);
+        CASE_1(':', COLON);
         CASE_1(',', COMMA);
         CASE_1('.', DOT);
         CASE_1('+', ADD);

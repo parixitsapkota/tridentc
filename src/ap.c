@@ -152,6 +152,12 @@ static void ap_scope_f(AstPrinter *ap, AstScope *scope, const char *prefix) {
     } else if (curr->kind == AST_WHILE) {
       print_prefix(prefix);
       ap_while_s(ap, curr, prefix);
+    } else if (curr->kind == AST_LABLE) {
+      print_prefix(prefix);
+      fprintf(stdout, FG_MAGENTA "AST_LABLE: " FG_GREEN "\"%s\"\n" RESET, curr->lable);
+    } else if (curr->kind == AST_GOTO) {
+      print_prefix(prefix);
+      fprintf(stdout, FG_MAGENTA "AST_GOTO: " FG_GREEN "\"%s\"\n" RESET, curr->lable);
     } else {
       print_prefix(prefix);
       print_node_name(curr);

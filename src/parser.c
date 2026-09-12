@@ -99,6 +99,18 @@ AstNode *parse_while_s(Parser *p, AstScope *parent, size_t parent_stack_offset) 
   return while_wraper;
 }
 
+AstNode *parse_goto_s(Parser *p) {
+  expect_and_consume(p, GOTO);
+
+  const char *jump_lable_name = p->tok->lexeme;
+  pconsume(p);
+
+  AstNode *goto_n = arena_alloc(p->ast, sizeof(AstNode));
+  *goto_n = (AstNode){AST_GOTO, .lable = jump_lable_name};
+  expect_and_consume(p, SEMICOLON);
+  return goto_n;
+}
+
 AstNode *parse_return_s(Parser *p) {
   expect_and_consume(p, RETURN);
 
@@ -132,6 +144,19 @@ AstNode *parse_scope_f(Parser *p, AstScope *parent, size_t parent_stack_offset) 
     case IF: add_node(&body_tail, parse_if_s(p, AST_IF, scope_n, stack_offset)); break;
 
     case WHILE: add_node(&body_tail, parse_while_s(p, scope_n, stack_offset)); break;
+
+    case GOTO: add_node(&body_tail, parse_goto_s(p)); break;
+
+    case IDENTIFIER:
+      if (ppeak(p) && ppeak(p)->kind == COLON) {
+        const char *lable_name = p->tok->lexeme;
+        pconsume(p);
+        pconsume(p);
+        AstNode *lable_n = arena_alloc(p->ast, sizeof(AstNode));
+        *lable_n = (AstNode){AST_LABLE, .lable = lable_name};
+        add_node(&body_tail, lable_n);
+        break;
+      }
 
     default: {
       AstNode *p_expr_n = parse_expr_f(p, PREC_NONE);

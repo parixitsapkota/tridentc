@@ -23,6 +23,7 @@ typedef enum {
   IF,
   ELSE,
   WHILE,
+  GOTO,
   RETURN,
 
   // Seperator
@@ -33,6 +34,7 @@ typedef enum {
   O_BRACKET, // `[`
   C_BRACKET, // `]`
   SEMICOLON, // `;`
+  COLON,     // `:`
 
   // Operator
   NOT,    // `!`

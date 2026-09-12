@@ -291,6 +291,10 @@ void cgen_scope_f(Cgen *c, AstScope *scope) {
 
     case AST_WHILE: cgen_while_s(c, curr, curr->while_n->body->scope_n->parent); break;
 
+    case AST_LABLE: fprintf(c->file, ".L_%s:\n", curr->lable); break;
+
+    case AST_GOTO: fprintf(c->file, "  jmp .L_%s\n", curr->lable); break;
+
     default: break;
     }
     curr = curr->next;

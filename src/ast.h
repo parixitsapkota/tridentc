@@ -89,6 +89,8 @@ typedef enum {
   AST_ELSE,
   AST_WHILE,
   AST_RETURN,
+  AST_LABLE,
+  AST_GOTO,
 } AstKind;
 
 struct AstNode {
@@ -103,6 +105,7 @@ struct AstNode {
     AstIf *if_n;
     AstWhile *while_n;
     AstNode *node;
+    const char *lable;
   };
   // Position
   size_t ln;

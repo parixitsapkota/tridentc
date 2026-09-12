@@ -34,7 +34,7 @@ struct Keyword {
   int token_kind;
 };
 
-#define TOTAL_KEYWORDS 6
+#define TOTAL_KEYWORDS 7
 #define MIN_WORD_LENGTH 2
 #define MAX_WORD_LENGTH 6
 #define MIN_HASH_VALUE 2
@@ -54,7 +54,7 @@ inline
       12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
       12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
       12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
-      12, 12, 12, 12, 12, 12, 12, 12, 12, 5,  12, 12, 12, 0,  12, 12, 12, 0,  12, 12, 12, 12,
+      12, 12, 12, 12, 12, 12, 12, 12, 12, 4,  12, 12, 12, 0,  12, 5,  12, 0,  12, 12, 12, 12,
       12, 12, 12, 12, 5,  12, 12, 12, 12, 0,  12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
       12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
       12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
@@ -83,11 +83,12 @@ struct Keyword *get_keyword_kind(register const char *str, register size_t len) 
 #line 13 "res/keywords.gperf"
                                       {"extern", EXTERN},
                                       {""},
-                                      {""},
 #line 14 "res/keywords.gperf"
                                       {"auto", AUTO},
-                                      {""},
 #line 18 "res/keywords.gperf"
+                                      {"goto", GOTO},
+                                      {""},
+#line 19 "res/keywords.gperf"
                                       {"return", RETURN}};
 #if (defined __GNUC__ && __GNUC__ + (__GNUC_MINOR__ >= 6) > 4) ||                                \
     (defined __clang__ && __clang_major__ >= 3)
