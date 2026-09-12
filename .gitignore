@@ -10,5 +10,4 @@ trident
 *.exe
 
 # Project generated
-asm/
-a.out
+*.out

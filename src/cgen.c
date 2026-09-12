@@ -354,6 +354,7 @@ void cgen(Cgen *c) {
     }
   }
 
+  fprintf(c->file, "section .text\n");
 #if defined(__linux__) || defined(_TUX)
 
   fprintf(c->file, "_start:\n");

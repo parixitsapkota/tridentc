@@ -1,9 +1,10 @@
 # --- Colors ---
-COLOR_RESET  := \033[0m
-COLOR_RED    := \033[1;31m
-COLOR_GREEN  := \033[1;32m
-COLOR_YELLOW := \033[1;33m
-COLOR_BLUE   := \033[1;34m
+COLOR_RESET   := \033[0m
+COLOR_RED     := \033[1;31m
+COLOR_GREEN   := \033[1;32m
+COLOR_YELLOW  := \033[1;33m
+COLOR_BLUE    := \033[1;34m
+COLOR_MAGENTA := \033[1;35m
 
 # --- Configuration ---
 PROJECT := trident
@@ -72,11 +73,26 @@ $(BUILD)/%.o: src/%.c
 # Clean build artifact
 clean:
 	@echo "$(COLOR_BLUE)[-] Cleaning build artifacts...$(COLOR_RESET)"
-	@rm -rf build/ asm/ a.out $(PROJECT) $(PROJECT).exe
+	@rm -rf build/ examples/*.o examples/*.asm examples/*.out $(PROJECT) $(PROJECT).exe
 
 # Format sourcefile
 format:
 	@echo "$(COLOR_BLUE)[-] Formatting source files...$(COLOR_RESET)"
 	@clang-format -i $(SRCFILES)
+
+EXAMPLE    ?= $(wildcard examples/*.b)
+run:
+	@printf "\n\n"; 
+	@for file in $(EXAMPLE); do \
+		base=$$(basename $$file); \
+		printf "$(COLOR_MAGENTA)[+] Compiling $$file...$(COLOR_RESET)\n"; \
+		./$(OUTPUT) $$file || exit 1; \
+		printf "$(COLOR_GREEN)[+] Assembling examples/$$base.asm...$(COLOR_RESET)\n"; \
+		nasm -f elf64 examples/$$base.asm -o examples/$$base.o || exit 1; \
+		printf "$(COLOR_YELLOW)[#] Linking examples/$$base.o...$(COLOR_RESET)\n"; \
+		ld -o examples/$$base.out examples/$$base.o || exit 1; \
+		./examples/$$base.out; status=$$?; \
+		printf "$(COLOR_BLUE)[+] $$base.out : Exit-code : $(COLOR_RED)%d$(COLOR_RESET)\n\n" $$status; \
+	done
 
 .PHONY: all clean format
