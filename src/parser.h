@@ -14,8 +14,10 @@ typedef struct {
   size_t i; // index
   // Ast store
   Arena *ast;
-  Arena *offsets;
+  Arena *var_info;
   AstNode *ast_head;
+  Hs *global_table;
+  Hs *functions_table;
   // Helper/Temp vars
   Token *tok;
   AstNode *t_node;
@@ -55,7 +57,5 @@ bool is_kind(Parser *p, TokenKind kind);
 
 AstAtom *parse_atom_f(Parser *p);
 AstNode *parse_expr_f(Parser *p, Precedence prec);
-
-AstNode *parse_function_s(Parser *p);
 
 #endif // _TRIDENT_PARSER_H_

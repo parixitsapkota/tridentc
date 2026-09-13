@@ -21,7 +21,9 @@ Parser *init_parser(Lexer *l) {
   p->i = 0;
   p->l = l;
   p->ast = init_arena(sizeof(AstNode) * TOKENS_STORE);
-  p->offsets = init_arena(sizeof(Offset) * 1024);
+  p->var_info = init_arena(sizeof(VarInfo) * 1024);
+  p->global_table = init_hash_set(20);
+  p->functions_table = init_hash_set(24);
   return p;
 }
 
@@ -29,9 +31,8 @@ void parse_auto_s(Parser *p, Hs *symtab, size_t *stack_offset, AstNode **body_ta
   expect_and_consume(p, AUTO);
 
 auto_alloc: {
-  Offset *offset = arena_alloc(p->offsets, sizeof(Offset));
-  *offset = (Offset){*stack_offset};
-  put_to_hash_set(symtab, p->tok->lexeme, offset);
+  VarInfo *info = var_info(p->var_info, AUTO_VAR, *stack_offset);
+  put_to_hash_set(symtab, p->tok->lexeme, info);
   ++*stack_offset;
 
   AstNode *auto_n = arena_alloc(p->ast, sizeof(AstNode));
@@ -175,31 +176,69 @@ AstNode *parse_scope_f(Parser *p, AstScope *parent, size_t parent_stack_offset) 
   return body_n;
 }
 
-AstNode *parse_function_s(Parser *p) {
-  const char *function_name = p->tok->lexeme;
-  pconsume(p);
+AstNode *parse_function_s(Parser *p, const char *name, AstScope *parent) {
 
   expect_and_consume(p, O_PREN);
   // TODO: parse_parameters_f
   expect_and_consume(p, C_PREN);
 
-  AstNode *body_n = parse_scope_f(p, NULL, 1);
+  AstNode *body_n = parse_scope_f(p, parent, 1);
 
   AstNode *function_n = arena_alloc(p->ast, sizeof(AstNode));
-  *function_n =
-      (AstNode){AST_FUNCTION, .function_n = new_ast_function(p->ast, function_name, body_n)};
+  *function_n = (AstNode){AST_FUNCTION, .function_n = new_ast_function(p->ast, name, body_n)};
 
   return function_n;
+}
+
+void parse_global_s(Parser *p, const char *name) {
+  size_t size = 1;
+
+  goto first;
+
+comma:
+
+  name = p->tok->lexeme;
+  pconsume(p);
+
+first: {
+  VarInfo *info = var_info(p->var_info, GLOBAL_VAR, 0);
+  put_to_hash_set(p->global_table, name, info);
+}
+
+  if (is_kind(p, O_BRACKET)) {
+    pconsume(p);
+    size = atoi(p->tok->lexeme);
+    expect_and_consume(p, C_BRACKET);
+  }
+
+  AstNode *global_n = arena_alloc(p->ast, sizeof(AstNode));
+  *global_n = (AstNode){AST_GLOBAL, .global_n = new_ast_global(p->ast, name, size)};
+  add_node(&p->t_node, global_n);
+
+  if (is_kind(p, COMMA)) {
+    pconsume(p);
+    goto comma;
+  }
+
+  expect_and_consume(p, SEMICOLON);
 }
 
 void parser(Parser *p) {
   p->ast_head = arena_alloc(p->ast, sizeof(AstNode));
   p->t_node = p->ast_head;
 
+  AstScope *global_scope_n = new_ast_scope(p->ast, p->global_table, NULL, NULL);
+
   p->tok = p->l->tok_head->next;
   while (p->tok != NULL) {
     if (p->tok->kind == IDENTIFIER) {
-      add_node(&p->t_node, parse_function_s(p));
+      const char *name = p->tok->lexeme;
+      pconsume(p);
+      if (p->tok->kind == O_PREN) {
+        add_node(&p->t_node, parse_function_s(p, name, global_scope_n));
+      } else {
+        parse_global_s(p, name);
+      }
     } else {
       fprintf(stderr, "%s:%zu:%zu: Unexpected token `%s`.\n", p->l->file, p->tok->ln, p->tok->cn,
               token_kind_to_str(p->tok->kind));
@@ -210,7 +249,9 @@ void parser(Parser *p) {
 
 void free_parser(Parser *p) {
   free_arena(p->ast);
-  free_arena(p->offsets);
+  free_arena(p->var_info);
+  free_hash_set(p->global_table);
+  free_hash_set(p->functions_table);
   free(p);
 }
 

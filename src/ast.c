@@ -1,5 +1,11 @@
 #include "ast.h"
 
+VarInfo *var_info(Arena *arena, VarKind kind, size_t offset) {
+  VarInfo *var = arena_alloc(arena, sizeof(VarInfo));
+  *var = (VarInfo){.kind = kind, .offset = offset};
+  return var;
+}
+
 AstAtom *new_ast_atom(Arena *arena, AtomKind kind, const char *value) {
   AstAtom *atom = arena_alloc(arena, sizeof(AstAtom));
   *atom = (AstAtom){.kind = kind, .value = value};
@@ -34,4 +40,10 @@ AstIf *new_ast_conditional(Arena *arena, AstNode *Condition, AstNode *body, AstN
   AstIf *if_n = arena_alloc(arena, sizeof(AstIf));
   *if_n = (AstIf){.Condition = Condition, .body = body, .chain = chain};
   return if_n;
+}
+
+AstGlobal *new_ast_global(Arena *arena, const char *name, size_t size) {
+  AstGlobal *global_n = arena_alloc(arena, sizeof(AstGlobal));
+  *global_n = (AstGlobal){.name = name, .size = size};
+  return global_n;
 }

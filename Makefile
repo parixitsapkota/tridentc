@@ -80,19 +80,20 @@ format:
 	@echo "$(COLOR_BLUE)[-] Formatting source files...$(COLOR_RESET)"
 	@clang-format -i $(SRCFILES)
 
-EXAMPLE    ?= $(wildcard examples/*.b)
+EXAMPLE ?= $(wildcard examples/*.b)
+
 run:
-	@printf "\n\n"; 
+	@printf "\n\n"
 	@for file in $(EXAMPLE); do \
-		base=$$(basename $$file); \
+		name=$$(basename "$$file" .b); \
 		printf "$(COLOR_MAGENTA)[+] Compiling $$file...$(COLOR_RESET)\n"; \
-		./$(OUTPUT) $$file || exit 1; \
-		printf "$(COLOR_GREEN)[+] Assembling examples/$$base.asm...$(COLOR_RESET)\n"; \
-		nasm -f elf64 examples/$$base.asm -o examples/$$base.o || exit 1; \
-		printf "$(COLOR_YELLOW)[#] Linking examples/$$base.o...$(COLOR_RESET)\n"; \
-		ld -o examples/$$base.out examples/$$base.o || exit 1; \
-		./examples/$$base.out; status=$$?; \
-		printf "$(COLOR_BLUE)[+] $$base.out : Exit-code : $(COLOR_RED)%d$(COLOR_RESET)\n\n" $$status; \
+		./$(OUTPUT) "$$file" || exit 1; \
+		printf "$(COLOR_GREEN)[+] Assembling examples/$$name.asm...$(COLOR_RESET)\n"; \
+		nasm -f elf64 "examples/$$name.b.asm" -o "examples/$$name.o" || exit 1; \
+		printf "$(COLOR_YELLOW)[#] Linking examples/$$name.o...$(COLOR_RESET)\n"; \
+		ld -o "examples/$$name.bin" "examples/$$name.o" || exit 1; \
+		./examples/$$name.bin; status=$$?; \
+		printf "$(COLOR_BLUE)[+] $$name.b : Exit-code : $(COLOR_RED)%d$(COLOR_RESET)\n\n" $$status; \
 	done
 
 .PHONY: all clean format

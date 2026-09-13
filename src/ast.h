@@ -75,6 +75,11 @@ typedef struct {
   AstNode *body;
 } AstWhile;
 
+typedef struct {
+  const char *name;
+  size_t size;
+} AstGlobal;
+
 typedef enum {
   AST_ATOM,
   AST_UNARY,
@@ -91,6 +96,7 @@ typedef enum {
   AST_RETURN,
   AST_LABLE,
   AST_GOTO,
+  AST_GLOBAL,
 } AstKind;
 
 struct AstNode {
@@ -104,6 +110,7 @@ struct AstNode {
     AstFunction *function_n;
     AstIf *if_n;
     AstWhile *while_n;
+    AstGlobal *global_n;
     AstNode *node;
     const char *lable;
   };
@@ -114,15 +121,24 @@ struct AstNode {
   AstNode *next;
 };
 
+typedef enum {
+  AUTO_VAR,
+  GLOBAL_VAR,
+} VarKind;
+
 typedef struct {
+  VarKind kind;
   size_t offset;
-} Offset;
+} VarInfo;
+
+VarInfo *var_info(Arena *arena, VarKind kind, size_t offset);
 
 AstAtom *new_ast_atom(Arena *arena, AtomKind kind, const char *value);
 AstUnary *new_ast_unary(Arena *arena, AstNode *node, TokenKind op);
 AstBinary *new_ast_binary(Arena *arena, AstNode *left, OpKind op, AstNode *right);
 AstScope *new_ast_scope(Arena *arena, Hs *symtab, AstScope *parent, AstNode *body);
 AstFunction *new_ast_function(Arena *arena, const char *name, AstNode *body);
-AstIf *new_ast_if(Arena *arena, AstNode *Condition, AstNode *body, AstNode *chain);
+AstIf *new_ast_conditional(Arena *arena, AstNode *Condition, AstNode *body, AstNode *chain);
+AstGlobal *new_ast_global(Arena *arena, const char *name, size_t size);
 
 #endif // _TRIDENT_AST_H_

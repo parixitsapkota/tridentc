@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
 
   cgen(c);
 
-  // print_ast(p);
+  print_ast(p);
 
   free_parser(p);
   free_lexer(l);

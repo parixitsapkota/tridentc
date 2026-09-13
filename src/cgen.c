@@ -29,13 +29,13 @@ Cgen *init_cgen(Parser *p, const char *file_path) {
   return c;
 }
 
-static Offset *lookup_symbol(AstScope *scope, const char *name) {
+static VarInfo *lookup_symbol(AstScope *scope, const char *name) {
   AstScope *curr_scope = scope;
 
   while (curr_scope != NULL) {
     if (curr_scope->symtab && has_in_hash_set(curr_scope->symtab, name)) {
 
-      return (Offset *)get_from_hash_set(curr_scope->symtab, name);
+      return (VarInfo *)get_from_hash_set(curr_scope->symtab, name);
     }
     curr_scope = curr_scope->parent;
   }
@@ -57,16 +57,23 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
       break;
 
     case IDENTIFIER_LIT: {
-      Offset *sym = lookup_symbol(scope, node->atom_n->value);
+      const char *var_name = node->atom_n->value;
+      VarInfo *var = lookup_symbol(scope, var_name);
 
-      if (!sym) {
-        fprintf(stderr, "FATAL: Undefined variable '%s'\n", node->atom_n->value);
+      if (!var) {
+        fprintf(stderr, "FATAL: Undefined variable '%s'\n", var_name);
         exit(EXIT_FAILURE);
       }
 
-      fprintf(c->file, "  mov eax, dword [rbp - %zu]\n", sym->offset * 4);
-      fprintf(c->file, "  sub rsp, 4\n");
-      fprintf(c->file, "  mov dword [rsp], eax\n");
+      if (var->kind == AUTO_VAR) {
+        fprintf(c->file, "  mov eax, dword [rbp - %zu]\n", var->offset * 4);
+        fprintf(c->file, "  sub rsp, 4\n");
+        fprintf(c->file, "  mov dword [rsp], eax\n");
+      } else if (var->kind == GLOBAL_VAR) {
+        fprintf(c->file, "  mov eax, dword [var_%s]\n", var_name);
+        fprintf(c->file, "  sub rsp, 4\n");
+        fprintf(c->file, "  mov dword [rsp], eax\n");
+      }
       break;
     }
 
@@ -89,15 +96,18 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
 
       const char *var_name = left_node->atom_n->value;
 
-      Offset *sym = lookup_symbol(scope, var_name);
-      if (!sym) {
+      VarInfo *var = lookup_symbol(scope, var_name);
+      if (!var) {
         fprintf(stderr, "FATAL: Undefined variable '%s'\n", var_name);
         exit(EXIT_FAILURE);
       }
-
-      fprintf(c->file, "  mov eax, dword [rsp]\n");
-      fprintf(c->file, "  mov dword [rbp - %zu], eax ; var_name : \"%s\"\n", sym->offset * 4,
-              var_name);
+      if (var->kind == AUTO_VAR) {
+        fprintf(c->file, "  mov eax, dword [rsp]\n");
+        fprintf(c->file, "  mov dword [rbp - %zu], eax\n", var->offset * 4);
+      } else if (var->kind == GLOBAL_VAR) {
+        fprintf(c->file, "  mov eax, dword [rsp]\n");
+        fprintf(c->file, "  mov dword [var_%s], eax\n", var_name);
+      }
       return;
     }
 
@@ -339,22 +349,22 @@ void cgen(Cgen *c) {
   fprintf(c->file, "global _start\n");
 
 #elif defined(__Windows__) || defined(_WIN32)
-  fprintf(c->file, "global mainCRTStartup\n"
+  fprintf(c->file, "global mainCRTStartup\n");
   fprintf(c->file, "extern ExitProcess\n");
 
 #endif
+
+  fprintf(c->file, "\nsection .text\n\n");
 
   c->t_node = c->p->ast_head->next;
   while (c->t_node != NULL) {
     if (c->t_node->kind == AST_FUNCTION) {
       cgen_function_s(c);
     } else {
-      fprintf(stderr, "FAITAL : Invalid statement!\n");
       c->t_node = c->t_node->next;
     }
   }
 
-  fprintf(c->file, "section .text\n");
 #if defined(__linux__) || defined(_TUX)
 
   fprintf(c->file, "_start:\n");
@@ -387,6 +397,20 @@ void cgen(Cgen *c) {
   fprintf(c->file, "  call ExitProcess\n");
 
 #endif
+
+  fprintf(c->file, "\nsection .data\n\n");
+
+  c->t_node = c->p->ast_head->next;
+  while (c->t_node != NULL) {
+    if (c->t_node->kind == AST_GLOBAL) {
+      const char *name = c->t_node->global_n->name;
+      size_t size = c->t_node->global_n->size;
+      c->t_node = c->t_node->next;
+      fprintf(c->file, "  var_%s: times %zu dq 0\n", name, size);
+    } else {
+      c->t_node = c->t_node->next;
+    }
+  }
 }
 
 void free_cgen(Cgen *c) {
@@ -395,6 +419,8 @@ void free_cgen(Cgen *c) {
   }
   if (c->file) {
     fclose(c->file);
+  } else {
+    c->t_node = c->t_node->next;
   }
   free(c);
 }

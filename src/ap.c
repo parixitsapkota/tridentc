@@ -165,11 +165,6 @@ static void ap_scope_f(AstPrinter *ap, AstScope *scope, const char *prefix) {
 
     curr = curr->next;
   }
-
-  if (scope->symtab) {
-    free_hash_set(scope->symtab);
-    scope->symtab = NULL;
-  }
 }
 
 static void ap_function_s(AstPrinter *ap, AstNode *func_node) {
@@ -200,6 +195,8 @@ void print_ast(Parser *p) {
   while (curr) {
     if (curr->kind == AST_FUNCTION) {
       ap_function_s(ap, curr);
+    } else if (curr->kind == AST_GLOBAL) {
+      fprintf(stdout, FG_MAGENTA "+-- AST_GLOBAL\n");
     }
 
     curr = curr->next;
