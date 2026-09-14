@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "ap.h"
 #include "cgen.h"
 #include "lexer.h"
 #include "parser.h"
@@ -39,10 +38,8 @@ int main(int argc, char *argv[]) {
 
   cgen(c);
 
-  print_ast(p);
-
-  free_parser(p);
   free_lexer(l);
+  free_parser(p);
   free_cgen(c);
   return 0;
 }

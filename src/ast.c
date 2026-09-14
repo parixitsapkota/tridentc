@@ -6,7 +6,7 @@ VarInfo *var_info(Arena *arena, VarKind kind, size_t offset) {
   return var;
 }
 
-AstAtom *new_ast_atom(Arena *arena, AtomKind kind, const char *value) {
+AstAtom *new_ast_atom(Arena *arena, TokenKind kind, const char *value) {
   AstAtom *atom = arena_alloc(arena, sizeof(AstAtom));
   *atom = (AstAtom){.kind = kind, .value = value};
   return atom;
@@ -18,7 +18,7 @@ AstUnary *new_ast_unary(Arena *arena, AstNode *node, TokenKind op) {
   return unary;
 }
 
-AstBinary *new_ast_binary(Arena *arena, AstNode *left, OpKind op, AstNode *right) {
+AstBinary *new_ast_binary(Arena *arena, AstNode *left, TokenKind op, AstNode *right) {
   AstBinary *binary = arena_alloc(arena, sizeof(AstBinary));
   *binary = (AstBinary){.left = left, .op = op, .right = right};
   return binary;

@@ -7,12 +7,11 @@
 
 #include "keywords.h"
 #include "lexer.h"
-#include "trident.h"
 
 // Lexer helper funcions
 char peak(const Lexer *l, int offset);
 void consume(Lexer *l);
-void add_token(Lexer *l, Token t);
+void add_token(Lexer *l, TokenKind kind, const char *lexeme, Position position);
 // P_Print helper function
 char *token_kind_to_str(TokenKind kind);
 // Lexer core functions
@@ -20,7 +19,7 @@ char *substr(const char *buffer, const size_t start, const size_t end);
 char *get_word(Lexer *l);
 char *get_string_ident(Lexer *l);
 char *get_string(Lexer *l);
-char *get_digit(Lexer *l, TokenKind *kind);
+char *get_digit(Lexer *l);
 
 Lexer *init_lexer(const char *file, const char *buffer, size_t buf_len) {
   Lexer *l = malloc(sizeof(Lexer));
@@ -66,47 +65,37 @@ void lexer(Lexer *l) {
 
       const struct Keyword *k = get_keyword_kind(word, word_len);
       if (k != NULL) {
-        add_token(l, (Token){k->token_kind, NULL, l->ln, l->t_cn, NULL});
+        add_token(l, k->token_kind, NULL, position(l->ln, l->t_cn));
         free(word);
       } else {
-        add_token(l, (Token){IDENTIFIER, word, l->ln, l->t_cn, NULL});
+        add_token(l, IDENTIFIER, word, position(l->ln, l->t_cn));
       }
       continue;
     }
 
     // Handle digits.
     if (isdigit((unsigned char)c)) {
-      TokenKind kind;
-      char *num = get_digit(l, &kind);
-      add_token(l, (Token){kind, num, l->ln, l->t_cn, NULL});
+      char *num = get_digit(l);
+      add_token(l, INT, num, position(l->ln, l->t_cn));
       continue;
     }
 
     // Collect Strings
     if (c == '"') {
       char *str = get_string(l);
-      add_token(l, (Token){STRING, str, l->ln, l->t_cn, NULL});
+      add_token(l, STRING, str, position(l->ln, l->t_cn));
       continue;
     }
 
     // Skip Comments.
-    if (c == '/' && peak(l, 1) == '/') {
-      while (l->i < l->buf_len && peak(l, 0) != '\n') {
+    if (c == '/' && peak(l, 1) == '*') {
+      while (l->i < l->buf_len) {
+        if (peak(l, 0) == '*' && peak(l, 1) == '/') {
+          consume(l);
+          consume(l);
+          break;
+        }
         consume(l);
-      }
-      continue;
-    }
-
-    // Collect Directive & StringIdent.
-    if (c == '@' && ((isalpha(peak(l, 1)) || peak(l, 1) == '"'))) {
-      consume(l);
-      if (peak(l, 0) == '"') {
-        char *word = get_string_ident(l);
-        add_token(l, (Token){IDENTIFIER, word, l->ln, l->t_cn, NULL});
-      } else {
-        char *label = get_word(l);
-
-        add_token(l, (Token){LABLE, label, l->ln, l->t_cn, NULL});
       }
       continue;
     }
@@ -136,31 +125,53 @@ void lexer(Lexer *l) {
         CASE_1(')', C_PREN);
         CASE_1(';', SEMICOLON);
         CASE_1(':', COLON);
+        CASE_1('?', Q_MARK);
+        CASE_1('&', BIT_AND);
+        CASE_1('|', BIT_OR);
+
         CASE_1(',', COMMA);
-        CASE_1('.', DOT);
-        CASE_1('+', ADD);
-        CASE_1('-', SUB);
         CASE_1('*', MUL);
         CASE_1('/', DEV);
         CASE_1('%', MOD);
 
-        CASE_2('=', '=', ASSIGN, EQUAL);
+        CASE_2('+', '+', ADD, INC);
+        CASE_2('-', '-', SUB, DEC);
         CASE_2('!', '=', NOT, NOT_EQUAL);
-        CASE_2('<', '=', LESSER, LESSER_EQUAL);
-        CASE_2('>', '=', GREATER, GREATER_EQUAL);
+        CASE_2('=', '=', ASSIGN, EQUAL);
 
-        CASE_2('&', '&', UNKNOWN, AND);
-        CASE_2('|', '|', UNKNOWN, OR);
-        CASE_2('~', '~', UNKNOWN, XOR);
+      case '<':
+        if (peak(l, 1) == '=') {
+          kind = LESSER_EQUAL;
+          consume(l);
+        } else if (peak(l, 1) == '<') {
+          kind = BITSHIFT_L;
+          consume(l);
+        } else {
+          kind = LESSER;
+        }
+        break;
 
-      default: kind = UNKNOWN;
+      case '>':
+        if (peak(l, 1) == '=') {
+          kind = GREATER_EQUAL;
+          consume(l);
+        } else if (peak(l, 1) == '>') {
+          kind = BITSHIFT_R;
+          consume(l);
+        } else {
+          kind = GREATER;
+        }
+        break;
+
+      default: kind = UNKNOWN; break;
       }
+
       if (kind == UNKNOWN) {
-        add_token(l, (Token){UNKNOWN, NULL, l->ln, l->t_cn, NULL});
+        add_token(l, UNKNOWN, NULL, position(l->ln, l->t_cn));
         consume(l);
         continue;
       }
-      add_token(l, (Token){kind, NULL, l->ln, l->t_cn, NULL});
+      add_token(l, kind, NULL, position(l->ln, l->t_cn));
       consume(l);
       continue;
     }
@@ -187,9 +198,9 @@ void consume(Lexer *l) {
   ++l->cn;
 }
 
-void add_token(Lexer *l, Token t) {
+void add_token(Lexer *l, TokenKind kind, const char *lexeme, Position position) {
   Token *new_token = arena_alloc(l->tokens, sizeof(Token));
-  *new_token = t;
+  *new_token = (Token){.kind = kind, .lexeme = lexeme, .position = position, .next = NULL};
   new_token->next = NULL;
   l->t_token->next = new_token;
   l->t_token = new_token;
@@ -229,124 +240,10 @@ char *get_string(Lexer *l) {
   return substr(l->buffer, start, l->i - 1);
 }
 
-char *get_string_ident(Lexer *l) {
-  consume(l); // Skip char `"`.
+char *get_digit(Lexer *l) {
   const size_t start = l->i;
-
-  while (peak(l, 0) != '"') {
-    if (peak(l, 0) == '\0' || peak(l, 0) == '\n') {
-      fprintf(stderr, "%s:%zu:%zu: Unterminated identifier string.", l->file, l->ln, l->t_cn);
-      exit(EXIT_FAILURE);
-    }
+  while (isdigit(peak(l, 0))) {
     consume(l);
-  }
-  if (peak(l, 0) == '"') {
-    consume(l); // Skip char `"`.
-  }
-  return substr(l->buffer, start, l->i - 1);
-}
-
-static bool is_octal_digit(char c) { return c >= '0' && c <= '7'; }
-
-static bool is_hex_digit(char c) { return isdigit((unsigned char)c) || (c >= 'A' && c <= 'F'); }
-
-static char *get_binary(Lexer *l, TokenKind *kind) {
-  size_t start = l->i;
-  consume(l); // '0'
-  consume(l); // 'b'
-  while (peak(l, 0) == '0' || peak(l, 0) == '1') {
-    consume(l);
-  }
-  *kind = INT;
-  return substr(l->buffer, start, l->i);
-}
-
-static char *get_decimal(Lexer *l, TokenKind *kind) {
-  size_t start = l->i;
-  *kind = INT;
-  while (isdigit((unsigned char)peak(l, 0))) {
-    consume(l);
-  }
-
-  if (peak(l, 0) == '.') {
-    *kind = FLOAT;
-    consume(l); // consume '.'
-
-    while (isdigit((unsigned char)peak(l, 0))) {
-      consume(l);
-    }
-
-    if (peak(l, 0) == 'p') {
-      consume(l); // 'p'
-      if (peak(l, 0) == '+' || peak(l, 0) == '-') {
-        consume(l);
-      }
-      while (is_octal_digit(peak(l, 0))) {
-        consume(l);
-      }
-    }
   }
   return substr(l->buffer, start, l->i);
-}
-
-void get_prefix(Lexer *l, bool *has_dot, bool (*func)(char)) {
-  consume(l); // '0'
-  consume(l); // 'x`,`_'
-
-  while (func(peak(l, 0))) {
-    consume(l);
-  }
-
-  *has_dot = false;
-  if (peak(l, 0) == '.') {
-    *has_dot = true;
-    consume(l);
-    while (func(peak(l, 0))) {
-      consume(l);
-    }
-  }
-}
-
-void get_suffix(Lexer *l, TokenKind *kind, bool has_dot, bool (*func)(char)) {
-  if (peak(l, 0) == 'p') {
-    *kind = FLOAT;
-    consume(l); // 'p'
-    if (peak(l, 0) == '+' || peak(l, 0) == '-') {
-      consume(l);
-    }
-    while (func(peak(l, 0))) {
-      consume(l);
-    }
-  } else if (has_dot) {
-    *kind = FLOAT;
-  } else {
-    *kind = INT;
-    if (peak(l, 0) == 'S') {
-      consume(l);
-    }
-  }
-}
-
-static char *get_num(Lexer *l, TokenKind *kind, bool (*func)(char)) {
-  size_t start = l->i;
-
-  bool has_dot = false;
-  get_prefix(l, &has_dot, func);
-
-  get_suffix(l, kind, has_dot, func);
-  return substr(l->buffer, start, l->i);
-}
-
-// TODO: report error on malformed digits.
-char *get_digit(Lexer *l, TokenKind *kind) {
-  if (peak(l, 0) == '0' && peak(l, 1) == 'b') {
-    return get_binary(l, kind);
-  }
-  if (peak(l, 0) == '0' && peak(l, 1) == '_') {
-    return get_num(l, kind, is_octal_digit);
-  }
-  if (peak(l, 0) == '0' && peak(l, 1) == 'x') {
-    return get_num(l, kind, is_hex_digit);
-  }
-  return get_decimal(l, kind);
 }

@@ -5,22 +5,9 @@
 #include "token.h"
 #include "trident.h"
 
-AtomKind get_atom_kind(TokenKind kind) {
-  switch (kind) {
-  case INT: return INT_LIT;
-  case FLOAT: return FLOAT_LIT;
-  case STRING: return STRING_LIT;
-  case CHARACTER: return CHARACTER_LIT;
-  case IDENTIFIER: return IDENTIFIER_LIT;
-
-  default: return UNKNOWN_LIT;
-  }
-}
-
 bool is_kind_literal(TokenKind kind) {
   switch (kind) {
   case INT:
-  case FLOAT:
   case STRING:
   case CHARACTER:
   case IDENTIFIER: return true;
@@ -38,26 +25,25 @@ bool is_proc_left_Associative(Precedence prec) {
 
 Precedence get_op_prec(TokenKind kind) {
   switch (kind) {
-  case COMMA: return PREC_COMMA;
-
   case ASSIGN: return PREC_ASSIGNMENT;
 
-  case OR: return PREC_OR;
+  case BIT_OR: return PREC_BIT_OR;
 
-  case XOR: return PREC_XOR;
-
-  case AND: return PREC_AND;
+  case BIT_AND: return PREC_BIT_AND;
 
   case LESSER:
   case GREATER:
   case LESSER_EQUAL:
-  case GREATER_EQUAL: return PREC_RELATIVE;
+  case GREATER_EQUAL: return PREC_RELATIONAL;
 
   case EQUAL:
-  case NOT_EQUAL: return PREC_COMPARITIVE;
+  case NOT_EQUAL: return PREC_EQUALITY;
 
   case ADD:
   case SUB: return PREC_ADDITIVE;
+
+  case BITSHIFT_L:
+  case BITSHIFT_R: return PREC_BITSHIFT;
 
   case MUL:
   case DEV:
@@ -70,34 +56,9 @@ Precedence get_op_prec(TokenKind kind) {
   }
 }
 
-OpKind get_op(TokenKind kind) {
-  switch (kind) {
-  case ADD: return OP_ADD;
-  case SUB: return OP_SUB;
-  case MUL: return OP_MUL;
-  case DEV: return OP_DEV;
-  case MOD: return OP_MOD;
-  case ASSIGN: return OP_ASSIGN;
-  case AND: return OP_AND;
-  case OR: return OP_OR;
-  case XOR: return OP_XOR;
-  case EQUAL: return OP_EQUAL;
-  case NOT_EQUAL: return OP_NOT_EQUAL;
-  case LESSER: return OP_LESSER;
-  case GREATER: return OP_GREATER;
-  case LESSER_EQUAL: return OP_LESSER_EQUAL;
-  case GREATER_EQUAL: return OP_GREATER_EQUAL;
-
-  default: return OP_NONE;
-  }
-}
-
 AstAtom *parse_atom_f(Parser *p) {
   Token *tok = pconsume(p);
-
-  AtomKind literal_kind = get_atom_kind(tok->kind);
-
-  return new_ast_atom(p->ast, literal_kind, tok->lexeme);
+  return new_ast_atom(p->ast, tok->kind, tok->lexeme);
 }
 
 AstNode *parse_left_f(Parser *p) {
@@ -122,8 +83,8 @@ AstNode *parse_expr_f(Parser *p, Precedence prec) {
 
     if (op_prec == PREC_UNKNOWN) {
       Token *tok = curr(p);
-      fprintf(stderr, "%s:%zu:%zu: Unknown operator `%s`.\n", p->l->file, tok->ln, tok->cn,
-              token_kind_to_str(tok->kind));
+      fprintf(stderr, "%s:%zu:%zu: Unknown operator `%s`.\n", p->l->file, tok->position.ln,
+              tok->position.cn, token_kind_to_str(tok->kind));
     }
 
     if (op_prec == PREC_NONE || op_prec < prec) {
@@ -141,8 +102,8 @@ AstNode *parse_expr_f(Parser *p, Precedence prec) {
 
     AstNode *node = arena_alloc(p->ast, sizeof(AstNode));
 
-    *node = (AstNode){AST_BINARY, .binary_n = new_ast_binary(p->ast, left, get_op(op), right),
-                      op_tok->ln, op_tok->cn};
+    *node = (AstNode){AST_BINARY, .binary_n = new_ast_binary(p->ast, left, op, right),
+                      .position = position(op_tok->position.ln, op_tok->position.cn)};
     left = node;
   }
 

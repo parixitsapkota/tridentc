@@ -8,17 +8,8 @@
 
 typedef struct AstNode AstNode;
 
-typedef enum {
-  UNKNOWN_LIT,
-  INT_LIT,
-  FLOAT_LIT,
-  STRING_LIT,
-  CHARACTER_LIT,
-  IDENTIFIER_LIT,
-} AtomKind;
-
 typedef struct {
-  AtomKind kind;
+  TokenKind kind;
   const char *value;
 } AstAtom;
 
@@ -27,28 +18,9 @@ typedef struct {
   TokenKind op;
 } AstUnary;
 
-typedef enum {
-  OP_NONE,
-  OP_ADD,
-  OP_SUB,
-  OP_MUL,
-  OP_DEV,
-  OP_MOD,
-  OP_ASSIGN,
-  OP_AND,
-  OP_OR,
-  OP_XOR,
-  OP_EQUAL,
-  OP_NOT_EQUAL,
-  OP_LESSER,
-  OP_GREATER,
-  OP_LESSER_EQUAL,
-  OP_GREATER_EQUAL,
-} OpKind;
-
 typedef struct {
   AstNode *left;
-  OpKind op;
+  TokenKind op;
   AstNode *right;
 } AstBinary;
 
@@ -115,8 +87,7 @@ struct AstNode {
     const char *lable;
   };
   // Position
-  size_t ln;
-  size_t cn;
+  Position position;
   // for Compound/If statements.
   AstNode *next;
 };
@@ -133,9 +104,9 @@ typedef struct {
 
 VarInfo *var_info(Arena *arena, VarKind kind, size_t offset);
 
-AstAtom *new_ast_atom(Arena *arena, AtomKind kind, const char *value);
+AstAtom *new_ast_atom(Arena *arena, TokenKind kind, const char *value);
 AstUnary *new_ast_unary(Arena *arena, AstNode *node, TokenKind op);
-AstBinary *new_ast_binary(Arena *arena, AstNode *left, OpKind op, AstNode *right);
+AstBinary *new_ast_binary(Arena *arena, AstNode *left, TokenKind op, AstNode *right);
 AstScope *new_ast_scope(Arena *arena, Hs *symtab, AstScope *parent, AstNode *body);
 AstFunction *new_ast_function(Arena *arena, const char *name, AstNode *body);
 AstIf *new_ast_conditional(Arena *arena, AstNode *Condition, AstNode *body, AstNode *chain);

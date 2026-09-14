@@ -12,7 +12,6 @@ typedef enum {
   // Identifier & Literals
   IDENTIFIER,
   INT,
-  FLOAT,
   STRING,
   CHARACTER,
   LABLE,
@@ -35,11 +34,11 @@ typedef enum {
   C_BRACKET, // `]`
   SEMICOLON, // `;`
   COLON,     // `:`
+  Q_MARK,    // `?`
 
   // Operator
   NOT,    // `!`
   COMMA,  // `,`
-  DOT,    // `.`
   ADD,    // `+`
   SUB,    // `-`
   MUL,    // `*`
@@ -47,9 +46,14 @@ typedef enum {
   MOD,    // `%`
   ASSIGN, // `=`
 
-  AND, // `&&`
-  OR,  // `||`
-  XOR, // `~~`
+  INC, // `++`
+  DEC, // `--`
+
+  BIT_AND, // `&`
+  BIT_OR,  // `|`
+
+  BITSHIFT_L, // `<<`
+  BITSHIFT_R, // `>>`
 
   EQUAL,         // `==`
   NOT_EQUAL,     // `!=`
@@ -59,19 +63,25 @@ typedef enum {
   GREATER_EQUAL, // `>=`
 } TokenKind;
 
+typedef struct {
+  // Position
+  size_t ln; // line number;
+  size_t cn; // comume number;
+} Position;
+
 // Token Defination
 typedef struct Token {
   // Value
   TokenKind kind;
   const char *lexeme;
   // Position
-  size_t ln; // line number;
-  size_t cn; // comume number;
+  Position position;
   // Next Token
   struct Token *next;
 } Token;
 
 /// Returns a tokenKind atring based on given tokenKind.
 char *token_kind_to_str(TokenKind kind);
+Position position(size_t ln, size_t cn);
 
 #endif // _TRIDENT_TOKEN_H_

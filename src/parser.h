@@ -16,6 +16,7 @@ typedef struct {
   Arena *ast;
   Arena *var_info;
   AstNode *ast_head;
+  AstScope *global_scope_n;
   Hs *global_table;
   Hs *functions_table;
   // Helper/Temp vars
@@ -33,17 +34,12 @@ void free_parser(Parser *p);
 typedef enum {
   PREC_UNKNOWN = -1,
   PREC_NONE = 0,
-  PREC_COMMA,
   PREC_ASSIGNMENT,
-  PREC_RANGE,
-  PREC_OR,
-  PREC_XOR,
-  PREC_AND,
+  PREC_CONDITIONAL,
   PREC_BIT_OR,
-  PREC_BIT_XOR,
   PREC_BIT_AND,
-  PREC_RELATIVE,
-  PREC_COMPARITIVE,
+  PREC_RELATIONAL,
+  PREC_EQUALITY,
   PREC_BITSHIFT,
   PREC_ADDITIVE,
   PREC_MULTIPLICATIVE,
