@@ -1,13 +1,13 @@
 <p align=center>
-  <img align=center src="./res/b.png" width=100>
+  <img align=center src="./res/b.png" width=200>
 </p>
 
 <h1 align=center>TRIDENTC</h1>
 
 <p align=center>
-  <img alt="GitHub License" src="https://img.shields.io/github/license/parixitsapkota/tridentc?colorA=141c1e&colorB=cc9694&style=for-the-badge&logo=apache&logoColor=cc9694">
-  <img alt="GitHub top language" src="https://img.shields.io/github/languages/top/parixitsapkota/tridentc?colorA=141c1e&colorB=cc9694&style=for-the-badge&logo=c&logoColor=cc9694">
-  <img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/parixitsapkota/tridentc?colorA=141c1e&colorB=cc9694&style=for-the-badge&logo=github&logoColor=cc9694">
+  <a href="https://raw.githubusercontent.com/parixitsapkota/tridentc/refs/heads/main/LICENSE"><img alt="GitHub License" src="https://img.shields.io/github/license/parixitsapkota/tridentc?colorA=141c1e&colorB=cc9694&style=for-the-badge&logo=apache&logoColor=cc9694"></a>
+  <a href="https://github.com/parixitsapkota/tridentc"><img alt="GitHub top language" src="https://img.shields.io/github/languages/top/parixitsapkota/tridentc?colorA=141c1e&colorB=cc9694&style=for-the-badge&logo=c&logoColor=cc9694"></a>
+  <a href="https://github.com/parixitsapkota/tridentc/commits/"><img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/parixitsapkota/tridentc?colorA=141c1e&colorB=cc9694&style=for-the-badge&logo=github&logoColor=cc9694"></a>
   <p >Trident is an compiler for the <strong>B programming language</strong>, targeting <strong>amd64</strong> assembly. <strong>B</strong> is a typeless systems programming language developed by Ken Thompson and Dennis Ritchie at Bell Labs—the direct predecessor to <strong>C</strong>.</p>
 </p>
 
