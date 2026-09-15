@@ -3,7 +3,6 @@
 #include "ast.h"
 #include "parser.h"
 #include "token.h"
-#include "trident.h"
 
 bool is_kind_literal(TokenKind kind) {
   switch (kind) {
@@ -49,6 +48,7 @@ Precedence get_op_prec(TokenKind kind) {
   case DEV:
   case MOD: return PREC_MULTIPLICATIVE;
 
+  case COMMA:
   case C_PREN:
   case SEMICOLON: return PREC_NONE;
 
@@ -61,12 +61,27 @@ AstAtom *parse_atom_f(Parser *p) {
   return new_ast_atom(p->ast, tok->kind, tok->lexeme);
 }
 
+AstFunctionCall *parse_function_call_s(Parser *p) {
+  const char *name = p->tok->lexeme;
+  pconsume(p);
+
+  expect_and_consume(p, O_PREN);
+  // TODO: parse_parameters_expr_f
+  expect_and_consume(p, C_PREN);
+
+  return new_ast_function_call(p->ast, name);
+}
+
 AstNode *parse_left_f(Parser *p) {
   if (curr(p)->kind == O_PREN) {
     expect_and_consume(p, O_PREN);
     AstNode *node = parse_expr_f(p, PREC_NONE);
     expect_and_consume(p, C_PREN);
     return node;
+  } else if (curr(p)->kind == IDENTIFIER && curr(p)->next && curr(p)->next->kind == O_PREN) {
+    AstNode *left = arena_alloc(p->ast, sizeof(AstNode));
+    *left = (AstNode){AST_FUNCTION_CALL, .function_call_n = parse_function_call_s(p)};
+    return left;
   } else {
     AstNode *left = arena_alloc(p->ast, sizeof(AstNode));
     *left = (AstNode){AST_ATOM, .atom_n = parse_atom_f(p)};

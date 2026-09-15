@@ -42,6 +42,7 @@ static VarInfo *lookup_symbol(AstScope *scope, const char *name) {
 
   return NULL;
 }
+
 void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
   if (!node) {
     return;
@@ -84,6 +85,11 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
       exit(EXIT_FAILURE);
     }
 
+    return;
+  }
+
+  if (node->kind == AST_FUNCTION_CALL) {
+    fprintf(c->file, "  call %s\n", node->function_call_n->name);
     return;
   }
 

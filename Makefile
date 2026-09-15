@@ -73,7 +73,7 @@ $(BUILD)/%.o: src/%.c
 # Clean build artifact
 clean:
 	@echo "$(COLOR_BLUE)[-] Cleaning build artifacts...$(COLOR_RESET)"
-	@rm -rf build/ examples/*.o examples/*.asm examples/*.out $(PROJECT) $(PROJECT).exe
+	@rm -rf build/ examples/*.o examples/*.asm examples/*.bin $(PROJECT) $(PROJECT).exe
 
 # Format sourcefile
 format:

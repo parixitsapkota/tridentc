@@ -34,7 +34,12 @@ struct AstScope {
 typedef struct {
   const char *name;
   AstNode *body;
+  AstNode *Params;
 } AstFunction;
+
+typedef struct {
+  const char *name;
+} AstFunctionCall;
 
 typedef struct {
   AstNode *Condition;
@@ -59,6 +64,7 @@ typedef enum {
   AST_EXPR,
   AST_SCOPE,
   AST_FUNCTION,
+  AST_FUNCTION_CALL,
   AST_EXTERN,
   AST_AUTO,
   AST_IF,
@@ -80,6 +86,7 @@ struct AstNode {
     AstBinary *binary_n;
     AstScope *scope_n;
     AstFunction *function_n;
+    AstFunctionCall *function_call_n;
     AstIf *if_n;
     AstWhile *while_n;
     AstGlobal *global_n;
@@ -109,6 +116,7 @@ AstUnary *new_ast_unary(Arena *arena, AstNode *node, TokenKind op);
 AstBinary *new_ast_binary(Arena *arena, AstNode *left, TokenKind op, AstNode *right);
 AstScope *new_ast_scope(Arena *arena, Hs *symtab, AstScope *parent, AstNode *body);
 AstFunction *new_ast_function(Arena *arena, const char *name, AstNode *body);
+AstFunctionCall *new_ast_function_call(Arena *arena, const char *name);
 AstIf *new_ast_conditional(Arena *arena, AstNode *Condition, AstNode *body, AstNode *chain);
 AstGlobal *new_ast_global(Arena *arena, const char *name, size_t size);
 

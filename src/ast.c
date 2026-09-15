@@ -36,6 +36,12 @@ AstFunction *new_ast_function(Arena *arena, const char *name, AstNode *body) {
   return function;
 }
 
+AstFunctionCall *new_ast_function_call(Arena *arena, const char *name) {
+  AstFunctionCall *function_call = arena_alloc(arena, sizeof(AstFunctionCall));
+  *function_call = (AstFunctionCall){.name = name};
+  return function_call;
+}
+
 AstIf *new_ast_conditional(Arena *arena, AstNode *Condition, AstNode *body, AstNode *chain) {
   AstIf *if_n = arena_alloc(arena, sizeof(AstIf));
   *if_n = (AstIf){.Condition = Condition, .body = body, .chain = chain};
