@@ -14,7 +14,7 @@ void expect_and_consume(Parser *p, TokenKind kind);
 void add_node(AstNode **t_node, AstNode *node);
 Token *curr(const Parser *p);
 
-AstNode *parse_scope_f(Parser *p, AstScope *parent, size_t parent_stack_offset);
+AstNode *parse_scope_f(Parser *p, AstScope *parent, size_t parent_stack_offset, Hs *symtab);
 
 Parser *init_parser(Lexer *l) {
   Parser *p = malloc(sizeof(Parser));
@@ -24,6 +24,7 @@ Parser *init_parser(Lexer *l) {
   p->var_info = init_arena(sizeof(VarInfo) * 1024);
   p->global_table = init_hash_set(20);
   p->functions_table = init_hash_set(24);
+  p->global_scope_n = new_ast_scope(p->ast, p->global_table, NULL, NULL);
   return p;
 }
 
@@ -57,7 +58,8 @@ AstNode *parse_if_s(Parser *p, AstKind statenemt_kind, AstScope *parent,
   AstNode *condition = parse_expr_f(p, PREC_NONE);
   expect_and_consume(p, C_PREN);
 
-  AstNode *body = parse_scope_f(p, parent, parent_stack_offset);
+  Hs *if_symtab = init_hash_set(16);
+  AstNode *body = parse_scope_f(p, parent, parent_stack_offset, if_symtab);
 
   // parse chain
   AstNode *chain = NULL;
@@ -66,7 +68,8 @@ AstNode *parse_if_s(Parser *p, AstKind statenemt_kind, AstScope *parent,
     if (is_kind(p, IF)) {
       chain = parse_if_s(p, AST_ELSE_IF, parent, parent_stack_offset);
     } else {
-      AstNode *else_body = parse_scope_f(p, parent, parent_stack_offset);
+      Hs *else_symtab = init_hash_set(16);
+      AstNode *else_body = parse_scope_f(p, parent, parent_stack_offset, else_symtab);
 
       chain = arena_alloc(p->ast, sizeof(AstNode));
       *chain = (AstNode){AST_ELSE, .scope_n = else_body->scope_n};
@@ -83,13 +86,14 @@ AstNode *parse_if_s(Parser *p, AstKind statenemt_kind, AstScope *parent,
 }
 
 AstNode *parse_while_s(Parser *p, AstScope *parent, size_t parent_stack_offset) {
+  Hs *symtab = init_hash_set(16);
   expect_and_consume(p, WHILE);
 
   expect_and_consume(p, O_PREN);
   AstNode *condition = parse_expr_f(p, PREC_NONE);
   expect_and_consume(p, C_PREN);
 
-  AstNode *body = parse_scope_f(p, parent, parent_stack_offset);
+  AstNode *body = parse_scope_f(p, parent, parent_stack_offset, symtab);
 
   AstNode *while_wraper = arena_alloc(p->ast, sizeof(AstNode));
 
@@ -157,6 +161,10 @@ first: {
 }
 
 AstNode *parse_expr_s(Parser *p) {
+  if (is_kind(p, COMMA)) {
+    pconsume(p);
+    return NULL;
+  }
   AstNode *p_expr_n = parse_expr_f(p, PREC_NONE);
 
   AstNode *expr_n = arena_alloc(p->ast, sizeof(AstNode));
@@ -174,38 +182,49 @@ AstNode *parse_lable_s(Parser *p) {
   return lable_n;
 }
 
-AstNode *parse_scope_f(Parser *p, AstScope *parent, size_t parent_stack_offset) {
+AstNode *parse_statements_f(Parser *p, AstNode *body_tail, AstScope *parent, Hs *symtab,
+                            size_t *stack_offset) {
+  switch (p->tok->kind) {
+  case RETURN: return parse_return_s(p); break;
+
+  case AUTO: parse_auto_s(p, symtab, stack_offset, &body_tail); break;
+
+  case O_BRACE: {
+    Hs *symtab = init_hash_set(16);
+    return parse_scope_f(p, parent, *stack_offset, symtab);
+  }
+
+  case IF: return parse_if_s(p, AST_IF, parent, *stack_offset);
+
+  case WHILE: return parse_while_s(p, parent, *stack_offset);
+
+  case GOTO: return parse_goto_s(p); break;
+
+  case IDENTIFIER:
+    if (ppeak(p) && ppeak(p)->kind == COLON) {
+      return parse_lable_s(p);
+      break;
+    }
+
+  default: break;
+  }
+  return parse_expr_s(p);
+}
+
+AstNode *parse_scope_f(Parser *p, AstScope *parent, size_t parent_stack_offset, Hs *symtab) {
   AstScope *scope_n = arena_alloc(p->ast, sizeof(AstScope));
   size_t stack_offset = parent_stack_offset;
   AstNode *body_head = arena_alloc(p->ast, sizeof(AstNode));
   AstNode *body_tail = body_head;
-  Hs *symtab = init_hash_set(16);
 
   expect_and_consume(p, O_BRACE);
   while (p->tok != NULL) {
     if (p->tok->kind == C_BRACE) {
       break;
     }
-    switch (p->tok->kind) {
-    case RETURN: add_node(&body_tail, parse_return_s(p)); break;
-
-    case AUTO: parse_auto_s(p, symtab, &stack_offset, &body_tail); break;
-
-    case O_BRACE: add_node(&body_tail, parse_scope_f(p, scope_n, stack_offset)); break;
-
-    case IF: add_node(&body_tail, parse_if_s(p, AST_IF, scope_n, stack_offset)); break;
-
-    case WHILE: add_node(&body_tail, parse_while_s(p, scope_n, stack_offset)); break;
-
-    case GOTO: add_node(&body_tail, parse_goto_s(p)); break;
-
-    case IDENTIFIER:
-      if (ppeak(p) && ppeak(p)->kind == COLON) {
-        add_node(&body_tail, parse_lable_s(p));
-        break;
-      }
-
-    default: add_node(&body_tail, parse_expr_s(p)); break;
+    AstNode *statement = parse_statements_f(p, body_tail, scope_n, symtab, &stack_offset);
+    if (statement) {
+      add_node(&body_tail, statement);
     }
   }
   expect_and_consume(p, C_BRACE);
@@ -216,16 +235,36 @@ AstNode *parse_scope_f(Parser *p, AstScope *parent, size_t parent_stack_offset) 
   return body_n;
 }
 
-AstNode *parse_function_s(Parser *p, const char *name, AstScope *parent) {
+AstNode *parse_function_s(Parser *p, const char *name) {
+  size_t stack_offset = 1, params = 0;
+  AstNode *body_head = arena_alloc(p->ast, sizeof(AstNode));
+  AstNode *body_tail = body_head;
+  Hs *symtable = init_hash_set(24);
+  AstScope *params_tab_scope = new_ast_scope(p->ast, symtable, p->global_scope_n, NULL);
 
   expect_and_consume(p, O_PREN);
-  // TODO: parse_parameters_f
-  expect_and_consume(p, C_PREN);
 
-  AstNode *body_n = parse_scope_f(p, parent, 1);
+  while (p->tok->kind != C_PREN) {
+    const char *parm_name = p->tok->lexeme;
+    pconsume(p);
+
+    VarInfo *info = var_info(p->var_info, PARAM_VAR, stack_offset);
+    put_to_hash_set(symtable, parm_name, info);
+    ++stack_offset;
+    ++params;
+
+    if (is_kind(p, COMMA)) {
+      pconsume(p);
+    }
+  }
+
+  expect_and_consume(p, C_PREN);
+  add_node(&body_tail,
+           parse_statements_f(p, body_tail, params_tab_scope, symtable, &stack_offset));
 
   AstNode *function_n = arena_alloc(p->ast, sizeof(AstNode));
-  *function_n = (AstNode){AST_FUNCTION, .function_n = new_ast_function(p->ast, name, body_n)};
+  *function_n = (AstNode){AST_FUNCTION, .function_n = new_ast_function(p->ast, name, symtable,
+                                                                       params, body_head->next)};
 
   return function_n;
 }
@@ -234,15 +273,13 @@ void parser(Parser *p) {
   p->ast_head = arena_alloc(p->ast, sizeof(AstNode));
   p->t_node = p->ast_head;
 
-  AstScope *global_scope_n = new_ast_scope(p->ast, p->global_table, NULL, NULL);
-
   p->tok = p->l->tok_head->next;
   while (p->tok != NULL) {
     if (p->tok->kind == IDENTIFIER) {
       const char *name = p->tok->lexeme;
       pconsume(p);
       if (p->tok->kind == O_PREN) {
-        add_node(&p->t_node, parse_function_s(p, name, global_scope_n));
+        add_node(&p->t_node, parse_function_s(p, name));
       } else {
         parse_global_s(p, name);
       }

@@ -48,6 +48,7 @@ typedef enum {
 Token *ppeak(const Parser *p);
 Token *curr(const Parser *p);
 Token *pconsume(Parser *p);
+void add_node(AstNode **t_node, AstNode *node);
 void expect_and_consume(Parser *p, TokenKind kind);
 bool is_kind(Parser *p, TokenKind kind);
 

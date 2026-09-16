@@ -1,9 +1,11 @@
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "ast.h"
 #include "cgen.h"
+#include "trident.h"
 
 Cgen *init_cgen(Parser *p, const char *file_path) {
   Cgen *c = malloc(sizeof(Cgen));
@@ -29,6 +31,8 @@ Cgen *init_cgen(Parser *p, const char *file_path) {
   return c;
 }
 
+static const char *regs[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+
 static VarInfo *lookup_symbol(AstScope *scope, const char *name) {
   AstScope *curr_scope = scope;
 
@@ -53,8 +57,8 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
     switch (node->atom_n->kind) {
 
     case INT:
-      fprintf(c->file, "  sub rsp, 4\n");
-      fprintf(c->file, "  mov dword [rsp], %s\n", node->atom_n->value);
+      fprintf(c->file, "  sub rsp, 8\n");
+      fprintf(c->file, "  mov word [rsp], %s\n", node->atom_n->value);
       break;
 
     case IDENTIFIER: {
@@ -66,14 +70,14 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
         exit(EXIT_FAILURE);
       }
 
-      if (var->kind == AUTO_VAR) {
-        fprintf(c->file, "  mov eax, dword [rbp - %zu]\n", var->offset * 4);
-        fprintf(c->file, "  sub rsp, 4\n");
-        fprintf(c->file, "  mov dword [rsp], eax\n");
+      if (var->kind == AUTO_VAR || var->kind == PARAM_VAR) {
+        fprintf(c->file, "  mov rax, word [rbp - %zu]\n", var->offset * 8);
+        fprintf(c->file, "  sub rsp, 8\n");
+        fprintf(c->file, "  mov word [rsp], rax\n");
       } else if (var->kind == GLOBAL_VAR) {
-        fprintf(c->file, "  mov eax, dword [var_%s]\n", var_name);
-        fprintf(c->file, "  sub rsp, 4\n");
-        fprintf(c->file, "  mov dword [rsp], eax\n");
+        fprintf(c->file, "  mov rax, word [var_%s]\n", var_name);
+        fprintf(c->file, "  sub rsp, 8\n");
+        fprintf(c->file, "  mov word [rsp], rax\n");
       }
       break;
     }
@@ -89,7 +93,26 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
   }
 
   if (node->kind == AST_FUNCTION_CALL) {
+    AstNode *arg = node->function_call_n->args;
+    size_t argc = 0;
+
+    while (arg) {
+      cgen_expr_f(c, arg, scope);
+      ++argc;
+      arg = arg->next;
+    }
+
+    for (size_t i = argc; i > 0; --i) {
+      if ((i - 1) < 6) {
+        fprintf(c->file, "  pop %s\n", regs[i - 1]);
+      } else {
+        fprintf(c->file, "  add rsp, 8\n");
+      }
+    }
+
     fprintf(c->file, "  call %s\n", node->function_call_n->name);
+    fprintf(c->file, "  sub rsp, 8\n");
+    fprintf(c->file, "  mov word [rsp], rax\n");
     return;
   }
 
@@ -108,11 +131,11 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
         exit(EXIT_FAILURE);
       }
       if (var->kind == AUTO_VAR) {
-        fprintf(c->file, "  mov eax, dword [rsp]\n");
-        fprintf(c->file, "  mov dword [rbp - %zu], eax\n", var->offset * 4);
+        fprintf(c->file, "  mov rax, word [rsp]\n");
+        fprintf(c->file, "  mov word [rbp - %zu], rax\n", var->offset * 8);
       } else if (var->kind == GLOBAL_VAR) {
-        fprintf(c->file, "  mov eax, dword [rsp]\n");
-        fprintf(c->file, "  mov dword [var_%s], eax\n", var_name);
+        fprintf(c->file, "  mov rax, word [rsp]\n");
+        fprintf(c->file, "  mov word [var_%s], rax\n", var_name);
       }
       return;
     }
@@ -120,15 +143,15 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
     cgen_expr_f(c, node->binary_n->left, scope);
     cgen_expr_f(c, node->binary_n->right, scope);
 
-    fprintf(c->file, "  mov eax, dword [rsp+4]\n");
-    fprintf(c->file, "  mov ebx, dword [rsp]\n");
+    fprintf(c->file, "  mov rax, word [rsp+8]\n");
+    fprintf(c->file, "  mov ebx, word [rsp]\n");
     fprintf(c->file, "  add rsp, 8\n");
 
     switch (node->binary_n->op) {
 
-    case ADD: fprintf(c->file, "  add eax, ebx\n"); break;
-    case SUB: fprintf(c->file, "  sub eax, ebx\n"); break;
-    case MUL: fprintf(c->file, "  imul eax, ebx\n"); break;
+    case ADD: fprintf(c->file, "  add rax, ebx\n"); break;
+    case SUB: fprintf(c->file, "  sub rax, ebx\n"); break;
+    case MUL: fprintf(c->file, "  imul rax, ebx\n"); break;
 
     case DEV:
       fprintf(c->file, "  cdq\n");
@@ -138,43 +161,43 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
     case MOD:
       fprintf(c->file, "  cdq\n");
       fprintf(c->file, "  idiv ebx\n");
-      fprintf(c->file, "  mov eax, edx\n");
+      fprintf(c->file, "  mov rax, edx\n");
       break;
 
     case EQUAL:
-      fprintf(c->file, "  cmp eax, ebx\n");
+      fprintf(c->file, "  cmp rax, ebx\n");
       fprintf(c->file, "  sete al\n");
-      fprintf(c->file, "  movzx eax, al\n");
+      fprintf(c->file, "  movzx rax, al\n");
       break;
 
     case NOT_EQUAL:
-      fprintf(c->file, "  cmp eax, ebx\n");
+      fprintf(c->file, "  cmp rax, ebx\n");
       fprintf(c->file, "  setne al\n");
-      fprintf(c->file, "  movzx eax, al\n");
+      fprintf(c->file, "  movzx rax, al\n");
       break;
 
     case LESSER:
-      fprintf(c->file, "  cmp eax, ebx\n");
+      fprintf(c->file, "  cmp rax, ebx\n");
       fprintf(c->file, "  setl al\n");
-      fprintf(c->file, "  movzx eax, al\n");
+      fprintf(c->file, "  movzx rax, al\n");
       break;
 
     case GREATER:
-      fprintf(c->file, "  cmp eax, ebx\n");
+      fprintf(c->file, "  cmp rax, ebx\n");
       fprintf(c->file, "  setg al\n");
-      fprintf(c->file, "  movzx eax, al\n");
+      fprintf(c->file, "  movzx rax, al\n");
       break;
 
     case LESSER_EQUAL:
-      fprintf(c->file, "  cmp eax, ebx\n");
+      fprintf(c->file, "  cmp rax, ebx\n");
       fprintf(c->file, "  setle al\n");
-      fprintf(c->file, "  movzx eax, al\n");
+      fprintf(c->file, "  movzx rax, al\n");
       break;
 
     case GREATER_EQUAL:
-      fprintf(c->file, "  cmp eax, ebx\n");
+      fprintf(c->file, "  cmp rax, ebx\n");
       fprintf(c->file, "  setge al\n");
-      fprintf(c->file, "  movzx eax, al\n");
+      fprintf(c->file, "  movzx rax, al\n");
       break;
 
     default:
@@ -183,8 +206,8 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
       exit(EXIT_FAILURE);
     }
 
-    fprintf(c->file, "  sub rsp, 4\n");
-    fprintf(c->file, "  mov dword [rsp], eax\n");
+    fprintf(c->file, "  sub rsp, 8\n");
+    fprintf(c->file, "  mov word [rsp], rax\n");
     return;
   }
 
@@ -195,7 +218,7 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
 void cgen_scope_f(Cgen *c, AstScope *scope);
 
 void cgen_auto_s(Cgen *c) {
-  fprintf(c->file, "  sub rsp, 4\n");
+  fprintf(c->file, "  sub rsp, 8\n");
   return;
 }
 
@@ -213,8 +236,8 @@ void cgen_return_s(Cgen *c, AstScope *scope) {
   }
 
   cgen_expr_f(c, c->t_node->node, scope);
-  fprintf(c->file, "  mov eax, dword [rsp]\n");
-  fprintf(c->file, "  add rsp, 4\n");
+  fprintf(c->file, "  mov rax, word [rsp]\n");
+  fprintf(c->file, "  add rsp, 8\n");
   fprintf(c->file, "  mov rsp, rbp\n");
   fprintf(c->file, "  pop rbp\n");
   fprintf(c->file, "  ret\n");
@@ -230,9 +253,9 @@ static void cgen_if_chain_s(Cgen *c, AstNode *curr, AstScope *scope, size_t end_
 
     cgen_expr_f(c, curr->if_n->Condition, scope);
 
-    fprintf(c->file, "  mov eax, dword [rsp]\n");
-    fprintf(c->file, "  add rsp, 4\n");
-    fprintf(c->file, "  cmp eax, 0\n");
+    fprintf(c->file, "  mov rax, word [rsp]\n");
+    fprintf(c->file, "  add rsp, 8\n");
+    fprintf(c->file, "  cmp rax, 0\n");
     fprintf(c->file, "  je .L_if_next_%zu\n", next_label);
 
     if (curr->if_n->body && curr->if_n->body->kind == AST_SCOPE) {
@@ -268,9 +291,9 @@ void cgen_while_s(Cgen *c, AstNode *node, AstScope *scope) {
 
   cgen_expr_f(c, node->while_n->Condition, scope);
 
-  fprintf(c->file, "  mov eax, dword [rsp]\n");
-  fprintf(c->file, "  add rsp, 4\n");
-  fprintf(c->file, "  cmp eax, 0\n");
+  fprintf(c->file, "  mov rax, word [rsp]\n");
+  fprintf(c->file, "  add rsp, 8\n");
+  fprintf(c->file, "  cmp rax, 0\n");
   fprintf(c->file, "  je .L_while_end_%zu\n", label_id);
 
   if (node->while_n->body && node->while_n->body->kind == AST_SCOPE) {
@@ -292,7 +315,7 @@ void cgen_statement(Cgen *c, AstNode *curr, AstScope *scope) {
 
   case AST_EXPR:
     cgen_expr_f(c, curr->node, scope);
-    fprintf(c->file, "  add rsp, 4\n");
+    fprintf(c->file, "  add rsp, 8\n");
     break;
 
   case AST_SCOPE: cgen_scope_f(c, curr->scope_n); break;
@@ -334,12 +357,21 @@ void cgen_function_s(Cgen *c) {
   fprintf(c->file, "  push rbp\n");
   fprintf(c->file, "  mov rbp, rsp\n");
 
+  size_t params = c->t_node->function_n->params;
+  for (size_t i = 0; i < params && i < 6; ++i) {
+    fprintf(c->file, "  push %s\n", regs[i]);
+  }
+
   AstNode *save_func = c->t_node;
   AstNode *body_scope = save_func->function_n->body;
 
   cgen_statement(c, body_scope, c->p->global_scope_n);
-  fprintf(c->file, "\n");
 
+  fprintf(c->file, "  mov rsp, rbp\n");
+  fprintf(c->file, "  pop rbp\n");
+  fprintf(c->file, "  ret\n\n");
+
+  free_hash_set(save_func->function_n->params_tab);
   c->t_node = save_func->next;
 }
 

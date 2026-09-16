@@ -1,14 +1,20 @@
-ret_val;
-one, two;
+/*
+ *
+ * amd64 function call convention :
+ *
+ * arg0   : [rdi]
+ * arg1   : [rsi]
+ * arg2   : [rdx]
+ * arg3   : [r10]
+ * arg4   : [r8]
+ * arg5   : [r9]
+ * arg6   : [rsp - 8]
+ * arg-n  : [rsp - n*8]
+ *
+ */
 
-foo() {
-  ret_val = one + two;
-  return 0;
-}
+add(a, b) { return a + b; }
 
 main() {
-  one = 1;
-  two = 2;
-  foo();
-  return ret_val;
+  return add(1, 9);
 }

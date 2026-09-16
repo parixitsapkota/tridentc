@@ -66,10 +66,22 @@ AstFunctionCall *parse_function_call_s(Parser *p) {
   pconsume(p);
 
   expect_and_consume(p, O_PREN);
-  // TODO: parse_parameters_expr_f
+
+  AstNode *body_head = arena_alloc(p->ast, sizeof(AstNode));
+  AstNode *body_tail = body_head;
+
+  while (p->tok->kind != C_PREN) {
+    AstNode *expr = parse_expr_f(p, PREC_NONE);
+    add_node(&body_tail, expr);
+
+    if (is_kind(p, COMMA)) {
+      pconsume(p);
+    }
+  }
+
   expect_and_consume(p, C_PREN);
 
-  return new_ast_function_call(p->ast, name);
+  return new_ast_function_call(p->ast, name, body_head->next);
 }
 
 AstNode *parse_left_f(Parser *p) {
