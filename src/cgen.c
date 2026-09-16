@@ -58,7 +58,7 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
 
     case INT:
       fprintf(c->file, "  sub rsp, 8\n");
-      fprintf(c->file, "  mov word [rsp], %s\n", node->atom_n->value);
+      fprintf(c->file, "  mov qword [rsp], %s\n", node->atom_n->value);
       break;
 
     case IDENTIFIER: {
@@ -71,13 +71,13 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
       }
 
       if (var->kind == AUTO_VAR || var->kind == PARAM_VAR) {
-        fprintf(c->file, "  mov rax, word [rbp - %zu]\n", var->offset * 8);
+        fprintf(c->file, "  mov rax, qword [rbp - %zu]\n", var->offset * 8);
         fprintf(c->file, "  sub rsp, 8\n");
-        fprintf(c->file, "  mov word [rsp], rax\n");
+        fprintf(c->file, "  mov qword [rsp], rax\n");
       } else if (var->kind == GLOBAL_VAR) {
-        fprintf(c->file, "  mov rax, word [var_%s]\n", var_name);
+        fprintf(c->file, "  mov rax, qword [var_%s]\n", var_name);
         fprintf(c->file, "  sub rsp, 8\n");
-        fprintf(c->file, "  mov word [rsp], rax\n");
+        fprintf(c->file, "  mov qword [rsp], rax\n");
       }
       break;
     }
@@ -112,7 +112,7 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
 
     fprintf(c->file, "  call %s\n", node->function_call_n->name);
     fprintf(c->file, "  sub rsp, 8\n");
-    fprintf(c->file, "  mov word [rsp], rax\n");
+    fprintf(c->file, "  mov qword [rsp], rax\n");
     return;
   }
 
@@ -131,11 +131,11 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
         exit(EXIT_FAILURE);
       }
       if (var->kind == AUTO_VAR) {
-        fprintf(c->file, "  mov rax, word [rsp]\n");
-        fprintf(c->file, "  mov word [rbp - %zu], rax\n", var->offset * 8);
+        fprintf(c->file, "  mov rax, qword [rsp]\n");
+        fprintf(c->file, "  mov qword [rbp - %zu], rax\n", var->offset * 8);
       } else if (var->kind == GLOBAL_VAR) {
-        fprintf(c->file, "  mov rax, word [rsp]\n");
-        fprintf(c->file, "  mov word [var_%s], rax\n", var_name);
+        fprintf(c->file, "  mov rax, qword [rsp]\n");
+        fprintf(c->file, "  mov qword [var_%s], rax\n", var_name);
       }
       return;
     }
@@ -143,59 +143,59 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
     cgen_expr_f(c, node->binary_n->left, scope);
     cgen_expr_f(c, node->binary_n->right, scope);
 
-    fprintf(c->file, "  mov rax, word [rsp+8]\n");
-    fprintf(c->file, "  mov ebx, word [rsp]\n");
+    fprintf(c->file, "  mov rax, qword [rsp+8]\n");
+    fprintf(c->file, "  mov rbx, qword [rsp]\n");
     fprintf(c->file, "  add rsp, 8\n");
 
     switch (node->binary_n->op) {
 
-    case ADD: fprintf(c->file, "  add rax, ebx\n"); break;
-    case SUB: fprintf(c->file, "  sub rax, ebx\n"); break;
-    case MUL: fprintf(c->file, "  imul rax, ebx\n"); break;
+    case ADD: fprintf(c->file, "  add rax, rbx\n"); break;
+    case SUB: fprintf(c->file, "  sub rax, rbx\n"); break;
+    case MUL: fprintf(c->file, "  imul rax, rbx\n"); break;
 
     case DEV:
       fprintf(c->file, "  cdq\n");
-      fprintf(c->file, "  idiv ebx\n");
+      fprintf(c->file, "  idiv rbx\n");
       break;
 
     case MOD:
       fprintf(c->file, "  cdq\n");
-      fprintf(c->file, "  idiv ebx\n");
+      fprintf(c->file, "  idiv rbx\n");
       fprintf(c->file, "  mov rax, edx\n");
       break;
 
     case EQUAL:
-      fprintf(c->file, "  cmp rax, ebx\n");
+      fprintf(c->file, "  cmp rax, rbx\n");
       fprintf(c->file, "  sete al\n");
       fprintf(c->file, "  movzx rax, al\n");
       break;
 
     case NOT_EQUAL:
-      fprintf(c->file, "  cmp rax, ebx\n");
+      fprintf(c->file, "  cmp rax, rbx\n");
       fprintf(c->file, "  setne al\n");
       fprintf(c->file, "  movzx rax, al\n");
       break;
 
     case LESSER:
-      fprintf(c->file, "  cmp rax, ebx\n");
+      fprintf(c->file, "  cmp rax, rbx\n");
       fprintf(c->file, "  setl al\n");
       fprintf(c->file, "  movzx rax, al\n");
       break;
 
     case GREATER:
-      fprintf(c->file, "  cmp rax, ebx\n");
+      fprintf(c->file, "  cmp rax, rbx\n");
       fprintf(c->file, "  setg al\n");
       fprintf(c->file, "  movzx rax, al\n");
       break;
 
     case LESSER_EQUAL:
-      fprintf(c->file, "  cmp rax, ebx\n");
+      fprintf(c->file, "  cmp rax, rbx\n");
       fprintf(c->file, "  setle al\n");
       fprintf(c->file, "  movzx rax, al\n");
       break;
 
     case GREATER_EQUAL:
-      fprintf(c->file, "  cmp rax, ebx\n");
+      fprintf(c->file, "  cmp rax, rbx\n");
       fprintf(c->file, "  setge al\n");
       fprintf(c->file, "  movzx rax, al\n");
       break;
@@ -207,7 +207,7 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
     }
 
     fprintf(c->file, "  sub rsp, 8\n");
-    fprintf(c->file, "  mov word [rsp], rax\n");
+    fprintf(c->file, "  mov qword [rsp], rax\n");
     return;
   }
 
@@ -236,7 +236,7 @@ void cgen_return_s(Cgen *c, AstScope *scope) {
   }
 
   cgen_expr_f(c, c->t_node->node, scope);
-  fprintf(c->file, "  mov rax, word [rsp]\n");
+  fprintf(c->file, "  mov rax, qword [rsp]\n");
   fprintf(c->file, "  add rsp, 8\n");
   fprintf(c->file, "  mov rsp, rbp\n");
   fprintf(c->file, "  pop rbp\n");
@@ -253,7 +253,7 @@ static void cgen_if_chain_s(Cgen *c, AstNode *curr, AstScope *scope, size_t end_
 
     cgen_expr_f(c, curr->if_n->Condition, scope);
 
-    fprintf(c->file, "  mov rax, word [rsp]\n");
+    fprintf(c->file, "  mov rax, qword [rsp]\n");
     fprintf(c->file, "  add rsp, 8\n");
     fprintf(c->file, "  cmp rax, 0\n");
     fprintf(c->file, "  je .L_if_next_%zu\n", next_label);
@@ -291,7 +291,7 @@ void cgen_while_s(Cgen *c, AstNode *node, AstScope *scope) {
 
   cgen_expr_f(c, node->while_n->Condition, scope);
 
-  fprintf(c->file, "  mov rax, word [rsp]\n");
+  fprintf(c->file, "  mov rax, qword [rsp]\n");
   fprintf(c->file, "  add rsp, 8\n");
   fprintf(c->file, "  cmp rax, 0\n");
   fprintf(c->file, "  je .L_while_end_%zu\n", label_id);
