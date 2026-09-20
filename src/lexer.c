@@ -95,6 +95,10 @@ void lexer(Lexer *l) {
           consume(l);
           break;
         }
+        if (peak(l, 0) == '\n') {
+          l->cn = 0;
+          ++l->ln;
+        }
         consume(l);
       }
       continue;
