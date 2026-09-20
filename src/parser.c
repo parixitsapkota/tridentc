@@ -28,26 +28,25 @@ Parser *init_parser(Lexer *l) {
   return p;
 }
 
-void parse_auto_s(Parser *p, Hs *symtab, size_t *stack_offset, AstNode **body_tail) {
+AstNode *parse_auto_s(Parser *p, Hs *symtab, size_t *stack_offset) {
   expect_and_consume(p, AUTO);
+  size_t var_size = 0;
 
-auto_alloc: {
-  VarInfo *info = var_info(p->var_info, AUTO_VAR, *stack_offset);
-  put_to_hash_set(symtab, p->tok->lexeme, info);
-  ++*stack_offset;
+  do {
+    VarInfo *info = var_info(p->var_info, AUTO_VAR, *stack_offset);
+    put_to_hash_set(symtab, p->tok->lexeme, info);
+    ++*stack_offset;
+    pconsume(p);
+    ++var_size;
+    if (is_kind(p, COMMA)) {
+      pconsume(p);
+    }
+  } while (!is_kind(p, SEMICOLON));
+  expect_and_consume(p, SEMICOLON);
 
   AstNode *auto_n = arena_alloc(p->ast, sizeof(AstNode));
-  *auto_n = (AstNode){.kind = AST_AUTO, .node = NULL};
-  add_node(body_tail, auto_n);
-
-  pconsume(p);
-}
-  if (is_kind(p, COMMA)) {
-    pconsume(p);
-    goto auto_alloc;
-  }
-
-  expect_and_consume(p, SEMICOLON);
+  *auto_n = (AstNode){.kind = AST_AUTO, .auto_var_size = var_size};
+  return auto_n;
 }
 
 AstNode *parse_if_s(Parser *p, AstKind statenemt_kind, AstScope *parent,
@@ -182,12 +181,11 @@ AstNode *parse_lable_s(Parser *p) {
   return lable_n;
 }
 
-AstNode *parse_statements_f(Parser *p, AstNode *body_tail, AstScope *parent, Hs *symtab,
-                            size_t *stack_offset) {
+AstNode *parse_statements_f(Parser *p, AstScope *parent, Hs *symtab, size_t *stack_offset) {
   switch (p->tok->kind) {
   case RETURN: return parse_return_s(p); break;
 
-  case AUTO: parse_auto_s(p, symtab, stack_offset, &body_tail); break;
+  case AUTO: return parse_auto_s(p, symtab, stack_offset); break;
 
   case O_BRACE: {
     Hs *symtab = init_hash_set(16);
@@ -222,7 +220,7 @@ AstNode *parse_scope_f(Parser *p, AstScope *parent, size_t parent_stack_offset, 
     if (p->tok->kind == C_BRACE) {
       break;
     }
-    AstNode *statement = parse_statements_f(p, body_tail, scope_n, symtab, &stack_offset);
+    AstNode *statement = parse_statements_f(p, scope_n, symtab, &stack_offset);
     if (statement) {
       add_node(&body_tail, statement);
     }
@@ -259,8 +257,7 @@ AstNode *parse_function_s(Parser *p, const char *name) {
   }
 
   expect_and_consume(p, C_PREN);
-  add_node(&body_tail,
-           parse_statements_f(p, body_tail, params_tab_scope, symtable, &stack_offset));
+  add_node(&body_tail, parse_statements_f(p, params_tab_scope, symtable, &stack_offset));
 
   AstNode *function_n = arena_alloc(p->ast, sizeof(AstNode));
   *function_n = (AstNode){AST_FUNCTION, .function_n = new_ast_function(p->ast, name, symtable,

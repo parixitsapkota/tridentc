@@ -95,6 +95,7 @@ struct AstNode {
     AstGlobal *global_n;
     AstNode *node;
     const char *lable;
+    size_t auto_var_size;
   };
   // Position
   Position position;

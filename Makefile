@@ -59,7 +59,7 @@ all: format $(OUTPUT)
 
 # Link the main exe
 $(OUTPUT): $(OBJECTS)
-	@echo "$(COLOR_GREEN)[#] Linking $(OUTPUT) $(COLOR_BLUE)$(MODE)$(COLOR_GREEN) mode...$(COLOR_RESET)"
+	@echo -e "$(COLOR_GREEN)[#] Linking $(OUTPUT) $(COLOR_BLUE)$(MODE)$(COLOR_GREEN) mode...$(COLOR_RESET)"
 	@$(CC) $(CFLAGS) $(OBJECTS) -o $(OUTPUT)
 
 $(OBJECTS):
@@ -67,17 +67,17 @@ $(OBJECTS):
 # Compile sourcefile
 $(BUILD)/%.o: src/%.c
 	@mkdir -p $(dir $@)
-	@echo "$(COLOR_GREEN)[+] Compiling $<...$(COLOR_RESET)"
+	@echo -e "$(COLOR_GREEN)[+] Compiling $<...$(COLOR_RESET)"
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 # Clean build artifact
 clean:
-	@echo "$(COLOR_BLUE)[-] Cleaning build artifacts...$(COLOR_RESET)"
+	@echo -e "$(COLOR_BLUE)[-] Cleaning build artifacts...$(COLOR_RESET)"
 	@rm -rf build/ examples/*.o examples/*.asm examples/*.bin $(PROJECT) $(PROJECT).exe
 
 # Format sourcefile
 format:
-	@echo "$(COLOR_BLUE)[-] Formatting source files...$(COLOR_RESET)"
+	@echo -e "$(COLOR_BLUE)[-] Formatting source files...$(COLOR_RESET)"
 	@clang-format -i $(SRCFILES)
 
 EXAMPLE ?= $(wildcard examples/*.b)

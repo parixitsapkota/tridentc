@@ -135,7 +135,7 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
         fprintf(c->file, "  mov qword [rbp - %zu], rax\n", var->offset * 8);
       } else if (var->kind == GLOBAL_VAR) {
         fprintf(c->file, "  mov rax, qword [rsp]\n");
-        fprintf(c->file, "  mov qword [var_%s], rax\n", var_name);
+        fprintf(c->file, "  mov qword [rel var_%s], rax\n", var_name);
       }
       return;
     }
@@ -218,7 +218,7 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
 void cgen_scope_f(Cgen *c, AstScope *scope);
 
 void cgen_auto_s(Cgen *c) {
-  fprintf(c->file, "  sub rsp, 8\n");
+  fprintf(c->file, "  sub rsp, %zu\n", (size_t)(c->t_node->auto_var_size * 8));
   return;
 }
 
@@ -377,6 +377,7 @@ void cgen_function_s(Cgen *c) {
 
 void cgen(Cgen *c) {
   fprintf(c->file, "; MODULE : %s\n", c->p->l->file);
+  fprintf(c->file, "default rel\n");
   fprintf(c->file, "global _start\n");
 
   fprintf(c->file, "\nsection .text\n\n");
