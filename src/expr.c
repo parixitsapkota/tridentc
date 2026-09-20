@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stdlib.h>
 
 #include "ast.h"
 #include "parser.h"
@@ -10,15 +11,27 @@ bool is_kind_literal(TokenKind kind) {
   case STRING:
   case CHARACTER:
   case IDENTIFIER: return true;
+  default: return false;
+  }
+}
 
+bool is_unary_op(TokenKind op) {
+  switch (op) {
+  case NOT:
+  case ADD:
+  case SUB:
+  case MUL:
+  case INC:
+  case DEC:
+  case BIT_AND: return true;
   default: return false;
   }
 }
 
 bool is_proc_left_Associative(Precedence prec) {
   switch (prec) {
-  case PREC_ASSIGNMENT: return false;
-  default: return true;
+  case PREC_ASSIGNMENT: return true;
+  default: return false;
   }
 }
 
@@ -84,21 +97,38 @@ AstFunctionCall *parse_function_call_s(Parser *p) {
   return new_ast_function_call(p->ast, name, body_head->next);
 }
 
+AstNode *parse_left_f(Parser *p);
+
+AstUnary *parse_unary_lop_s(Parser *p) {
+  TokenKind op = pconsume(p)->kind;
+  AstNode *left = parse_left_f(p);
+  return new_ast_unary(p->ast, left, op);
+}
+
 AstNode *parse_left_f(Parser *p) {
-  if (curr(p)->kind == O_PREN) {
+  Token *token = curr(p);
+
+  if (token->kind == O_PREN) {
     expect_and_consume(p, O_PREN);
     AstNode *node = parse_expr_f(p, PREC_NONE);
     expect_and_consume(p, C_PREN);
     return node;
-  } else if (curr(p)->kind == IDENTIFIER && curr(p)->next && curr(p)->next->kind == O_PREN) {
-    AstNode *left = arena_alloc(p->ast, sizeof(AstNode));
+  }
+
+  AstNode *left = arena_alloc(p->ast, sizeof(AstNode));
+
+  if (token->kind == IDENTIFIER && token->next && token->next->kind == O_PREN) {
     *left = (AstNode){AST_FUNCTION_CALL, .function_call_n = parse_function_call_s(p)};
     return left;
-  } else {
-    AstNode *left = arena_alloc(p->ast, sizeof(AstNode));
-    *left = (AstNode){AST_ATOM, .atom_n = parse_atom_f(p)};
+  }
+
+  if (is_unary_op(token->kind)) {
+    *left = (AstNode){AST_UNARY, .unary_n = parse_unary_lop_s(p)};
     return left;
   }
+
+  *left = (AstNode){AST_ATOM, .atom_n = parse_atom_f(p)};
+  return left;
 }
 
 AstNode *parse_expr_f(Parser *p, Precedence prec) {
@@ -112,6 +142,7 @@ AstNode *parse_expr_f(Parser *p, Precedence prec) {
       Token *tok = curr(p);
       fprintf(stderr, "%s:%zu:%zu: Unknown operator `%s`.\n", p->l->file, tok->position.ln,
               tok->position.cn, token_kind_to_str(tok->kind));
+      exit(EXIT_FAILURE);
     }
 
     if (op_prec == PREC_NONE || op_prec < prec) {

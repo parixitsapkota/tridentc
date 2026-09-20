@@ -5,6 +5,7 @@
 
 #include "ast.h"
 #include "cgen.h"
+#include "token.h"
 #include "trident.h"
 
 Cgen *init_cgen(Parser *p, const char *file_path) {
@@ -111,6 +112,53 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
     }
 
     fprintf(c->file, "  call %s\n", node->function_call_n->name);
+    fprintf(c->file, "  sub rsp, 8\n");
+    fprintf(c->file, "  mov qword [rsp], rax\n");
+    return;
+  }
+
+  if (node->kind == AST_UNARY) {
+    cgen_expr_f(c, node->unary_n->node, scope);
+
+    fprintf(c->file, "  mov rax, qword [rsp]\n");
+    fprintf(c->file, "  add rsp, 8\n");
+
+    switch (node->unary_n->op) {
+    case NOT: fprintf(c->file, "  not rax\n"); break;
+    case INC: fprintf(c->file, "  inc rax\n"); break;
+    case DEC: fprintf(c->file, "  dec rax\n"); break;
+    default:
+      fprintf(stderr, "FATAL: Unhandled unary op (%d) in cgen_expr_f\n", (int)node->unary_n->op);
+      exit(EXIT_FAILURE);
+    }
+
+    if (node->unary_n->op == INC || node->unary_n->op == DEC) {
+      AstNode *target = node->unary_n->node;
+      while (target && target->kind == AST_UNARY &&
+             (target->unary_n->op == INC || target->unary_n->op == DEC)) {
+        target = target->unary_n->node;
+      }
+
+      if (target && target->kind == AST_ATOM && target->atom_n->kind == IDENTIFIER) {
+        const char *var_name = target->atom_n->value;
+        VarInfo *var = lookup_symbol(scope, var_name);
+
+        if (!var) {
+          fprintf(stderr, "FATAL: Undefined variable '%s'\n", var_name);
+          exit(EXIT_FAILURE);
+        }
+
+        if (var->kind == AUTO_VAR || var->kind == PARAM_VAR) {
+          fprintf(c->file, "  mov qword [rbp - %zu], rax\n", var->offset * 8);
+        } else if (var->kind == GLOBAL_VAR) {
+          fprintf(c->file, "  mov qword [rel var_%s], rax\n", var_name);
+        }
+      } else {
+        fprintf(stderr, "FATAL: invalid unary operator on a temporary.\n");
+        exit(EXIT_FAILURE);
+      }
+    }
+
     fprintf(c->file, "  sub rsp, 8\n");
     fprintf(c->file, "  mov qword [rsp], rax\n");
     return;
