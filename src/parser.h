@@ -5,7 +5,6 @@
 
 #include "ast.h"
 #include "lexer.h"
-#include "trident.h"
 
 // Parser Structure
 typedef struct {

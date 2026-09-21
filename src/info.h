@@ -1,5 +1,17 @@
-#ifndef _TRIDENT_COLORS_H_
-#define _TRIDENT_COLORS_H_
+#ifndef _TRIDENT_INFO_H_
+#define _TRIDENT_INFO_H_
+
+#ifndef VERSION_INFO
+#define VERSION_INFO ""
+#endif // VERSION_INFO
+
+#ifndef TIME_INFO
+#define TIME_INFO ""
+#endif // TIME_INFO
+
+#ifndef CC_INFO
+#define CC_INFO ""
+#endif // CC_INFO
 
 // Reset
 #define RESET "\033[0m"
@@ -47,4 +59,4 @@
 #define BGB_CYAN "\033[106m"
 #define BGB_WHITE "\033[107m"
 
-#endif // _TRIDENT_COLORS_H_
+#endif // _TRIDENT_INFO_H_

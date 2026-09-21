@@ -3,8 +3,10 @@
 
 #include <stddef.h>
 
+#include "shi/shi_arena.h"
+#include "shi/shi_hs.h"
+
 #include "token.h"
-#include "trident.h"
 
 typedef struct AstNode AstNode;
 

@@ -5,7 +5,6 @@
 #include "ast.h"
 #include "parser.h"
 #include "token.h"
-#include "trident.h"
 
 // Parser helper funcions
 Token *ppeak(const Parser *p);
