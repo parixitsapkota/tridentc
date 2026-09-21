@@ -10,14 +10,9 @@ COLOR_MAGENTA := \033[1;35m
 PROJECT := trident
 CC      = clang
 
-VERSION       := 0.0.1 $(shell date "+%d%m%Y")
-TIME_INFO     := $(shell date "+%Y/%m/%d %H:%M:%S:%p")
-COMPILER_INFO := $(shell $(CC) --version | head -n 1 | cut -d' ' -f1-3)
-
 DEBUG   := -fsanitize=address -g -O0
 RELEASE := -O3
 CFLAGS  := -Isrc -Wall -Wextra -Werror
-CFLAGS  := -DVERSION_INFO="\"$(VERSION)\"" -DTIME_INFO="\"$(TIME_INFO)\"" -DCC_INFO="\"$(COMPILER_INFO)\""
 LDFLAGS :=
 
 MODE    ?= debug
@@ -31,6 +26,15 @@ else
   BUILD  := build/debug
 endif
 
+# --- Information ---
+VERSION       := 0.0.1 $(MODE)-$(shell date "+%d%m%Y")
+TIME_INFO     := $(shell date "+%Y/%m/%d %H:%M:%S:%p")
+COMPILER_INFO := $(shell $(CC) --version | head -n 1 | cut -d' ' -f1-3)
+
+CFLAGS += -DVERSION_INFO="\"$(VERSION)\"" -DTIME_INFO="\"$(TIME_INFO)\""
+CFLAGS += -DCC_INFO="\"$(COMPILER_INFO)\""
+
+# --- Platform ---
 PLATFORM ?= linux
 OUTPUT   ?=
 
@@ -105,6 +109,8 @@ format:
 EXAMPLE ?= $(wildcard examples/*.b)
 
 run:
+	@printf "\n\n"
+	@./$(OUTPUT) -v
 	@printf "\n\n"
 	@for file in $(EXAMPLE); do \
 		name=$$(basename "$$file" .b); \

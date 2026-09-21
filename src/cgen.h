@@ -1,6 +1,8 @@
 #ifndef _TRIDENT_CGEN_H_
 #define _TRIDENT_CGEN_H_
 
+#include <stdio.h>
+
 #include "ast.h"
 #include "parser.h"
 #include "token.h"
