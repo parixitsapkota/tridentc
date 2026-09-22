@@ -1,4 +1,4 @@
-/* ANSI-C code produced by gperf version 3.3 */
+/* ANSI-C code produced by gperf version 3.2.1 */
 /* Command-line: gperf -N get_keyword_kind -t res/keywords.gperf  */
 /* Computed positions: -k'1' */
 
@@ -54,8 +54,8 @@ inline
       12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
       12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
       12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
-      12, 12, 12, 12, 12, 12, 12, 12, 12, 4,  12, 12, 12, 0,  12, 5,  12, 0,  12, 12, 12, 12,
-      12, 12, 12, 12, 5,  12, 12, 12, 12, 0,  12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
+      12, 12, 12, 12, 12, 12, 12, 12, 12, 7,  12, 12, 12, 5,  12, 0,  12, 0,  12, 12, 12, 12,
+      12, 12, 12, 12, 0,  12, 12, 12, 12, 0,  12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
       12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
       12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
       12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12,
@@ -76,20 +76,20 @@ struct Keyword *get_keyword_kind(register const char *str, register size_t len) 
 #line 15 "res/keywords.gperf"
                                       {"if", IF},
                                       {""},
-#line 16 "res/keywords.gperf"
-                                      {"else", ELSE},
-#line 17 "res/keywords.gperf"
-                                      {"while", WHILE},
-#line 13 "res/keywords.gperf"
-                                      {"extern", EXTERN},
-                                      {""},
-#line 14 "res/keywords.gperf"
-                                      {"auto", AUTO},
 #line 18 "res/keywords.gperf"
                                       {"goto", GOTO},
-                                      {""},
+#line 17 "res/keywords.gperf"
+                                      {"while", WHILE},
 #line 19 "res/keywords.gperf"
-                                      {"return", RETURN}};
+                                      {"return", RETURN},
+                                      {""},
+                                      {""},
+#line 16 "res/keywords.gperf"
+                                      {"else", ELSE},
+#line 13 "res/keywords.gperf"
+                                      {"extrn", EXTRN},
+#line 14 "res/keywords.gperf"
+                                      {"auto", AUTO}};
 #if (defined __GNUC__ && __GNUC__ + (__GNUC_MINOR__ >= 6) > 4) ||                                \
     (defined __clang__ && __clang_major__ >= 3)
 #pragma GCC diagnostic pop
@@ -108,3 +108,4 @@ struct Keyword *get_keyword_kind(register const char *str, register size_t len) 
   }
   return (struct Keyword *)0;
 }
+#line 20 "res/keywords.gperf"

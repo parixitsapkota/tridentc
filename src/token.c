@@ -9,7 +9,7 @@ char *token_kind_to_str(TokenKind kind) {
   case STRING: return "STRING";
   case CHARACTER: return "CHARACTER";
   case LABLE: return "LABLE";
-  case EXTERN: return "EXTERN";
+  case EXTRN: return "EXTRN";
   case AUTO: return "AUTO";
   case IF: return "IF";
   case ELSE: return "ELSE";

@@ -10,7 +10,7 @@ struct Keyword {
 };
 
 %%
-extern,  EXTERN
+extrn,  EXTRN
 auto,    AUTO
 if,      IF
 else,    ELSE

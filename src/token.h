@@ -17,7 +17,7 @@ typedef enum {
   LABLE,
 
   // Keywords
-  EXTERN,
+  EXTRN,
   AUTO,
   IF,
   ELSE,

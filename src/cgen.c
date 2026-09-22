@@ -265,7 +265,12 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
 void cgen_scope_f(Cgen *c, AstScope *scope);
 
 void cgen_auto_s(Cgen *c) {
-  fprintf(c->file, "  sub rsp, %zu\n", (size_t)(c->t_node->auto_var_size * 8));
+  fprintf(c->file, "  sub rsp, 8 ;; var : %s\n", c->t_node->name_s);
+  return;
+}
+
+void cgen_extrn_s(Cgen *c) {
+  fprintf(c->file, "  extern %s\n", c->t_node->name_s);
   return;
 }
 
@@ -360,6 +365,8 @@ void cgen_statement(Cgen *c, AstNode *curr, AstScope *scope) {
 
   case AST_AUTO: cgen_auto_s(c); break;
 
+  case AST_EXTRN: cgen_extrn_s(c); break;
+
   case AST_EXPR:
     cgen_expr_f(c, curr->node, scope);
     fprintf(c->file, "  add rsp, 8\n");
@@ -371,11 +378,13 @@ void cgen_statement(Cgen *c, AstNode *curr, AstScope *scope) {
 
   case AST_WHILE: cgen_while_s(c, curr, curr->while_n->body->scope_n->parent); break;
 
-  case AST_LABLE: fprintf(c->file, ".L_%s:\n", curr->lable); break;
+  case AST_LABLE: fprintf(c->file, ".L_%s:\n", curr->name_s); break;
 
-  case AST_GOTO: fprintf(c->file, "  jmp .L_%s\n", curr->lable); break;
+  case AST_GOTO: fprintf(c->file, "  jmp .L_%s\n", curr->name_s); break;
 
-  default: break;
+  default:
+    fprintf(stderr, "FATAL: Unhandled node kind (%d) in cgen_statement\n", (int)curr->kind);
+    break;
   }
 }
 

@@ -97,9 +97,21 @@ $(BUILD)/%.o: src/%.c
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 # Clean build artifact
-clean:
+clean: clean_build
+
+clean_all: clean clean_examples clean_shi
+
+clean_build:
 	@echo -e "$(COLOR_BLUE)[-] Cleaning build artifacts...$(COLOR_RESET)"
-	@rm -rf build/ src/shi/ examples/*.o examples/*.asm examples/*.bin $(PROJECT) $(PROJECT).exe
+	@rm -rf build/ $(PROJECT) $(PROJECT).exe
+
+clean_examples:
+	@echo -e "$(COLOR_BLUE)[-] Cleaning examples artifacts...$(COLOR_RESET)"
+	@rm -rf examples/*.o examples/*.asm examples/*.bin
+
+clean_shi:
+	@echo -e "$(COLOR_BLUE)[-] Cleaning shi headers...$(COLOR_RESET)"
+	@rm -rf src/shi/
 
 # Format sourcefile
 format:
