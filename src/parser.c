@@ -27,17 +27,10 @@ Parser *init_parser(Lexer *l) {
   return p;
 }
 
-AstNode *parse_auto_s(Parser *p, Hs *symtab, size_t *stack_offset, AstNode *body_tail) {
-  if (!body_tail) {
-    fprintf(stderr, "TODO: better error message! :) this is invalid statement i guess!\n");
-    exit(EXIT_FAILURE);
-  }
-
+AstNode *parse_auto_s(Parser *p, Hs *symtab, size_t *stack_offset, AstNode **body_tail) {
   expect_and_consume(p, AUTO);
-  AstNode *last_auto_n;
 
   do {
-
     const char *var_name = p->tok->lexeme;
     VarInfo *info = var_info(p->var_info, AUTO_VAR, *stack_offset);
     put_to_hash_set(symtab, var_name, info);
@@ -51,22 +44,15 @@ AstNode *parse_auto_s(Parser *p, Hs *symtab, size_t *stack_offset, AstNode *body
 
     AstNode *auto_n = arena_alloc(p->ast, sizeof(AstNode));
     *auto_n = (AstNode){.kind = AST_AUTO, .name_s = var_name};
-    add_node(&body_tail, auto_n);
-    last_auto_n = auto_n;
+    add_node(body_tail, auto_n);
   } while (!is_kind(p, SEMICOLON));
 
   expect_and_consume(p, SEMICOLON);
-  return last_auto_n;
+  return NULL;
 }
 
-AstNode *parse_extrn_s(Parser *p, AstNode *body_tail) {
-  if (!body_tail) {
-    fprintf(stderr, "TODO: better error message! :) this is invalid statement i guess!\n");
-    exit(EXIT_FAILURE);
-  }
-
+AstNode *parse_extrn_s(Parser *p, AstNode **body_tail) {
   expect_and_consume(p, EXTRN);
-  AstNode *last_extrn_n;
 
   do {
     const char *var_name = p->tok->lexeme;
@@ -78,12 +64,11 @@ AstNode *parse_extrn_s(Parser *p, AstNode *body_tail) {
 
     AstNode *extrn_n = arena_alloc(p->ast, sizeof(AstNode));
     *extrn_n = (AstNode){.kind = AST_EXTRN, .name_s = var_name};
-    add_node(&body_tail, extrn_n);
-    last_extrn_n = extrn_n;
+    add_node(body_tail, extrn_n);
   } while (!is_kind(p, SEMICOLON));
 
   expect_and_consume(p, SEMICOLON);
-  return last_extrn_n;
+  return NULL;
 }
 
 AstNode *parse_if_s(Parser *p, AstKind statenemt_kind, AstScope *parent,
@@ -219,12 +204,12 @@ AstNode *parse_lable_s(Parser *p) {
 }
 
 AstNode *parse_statements_f(Parser *p, AstScope *parent, Hs *symtab, size_t *stack_offset,
-                            AstNode *body_tail) {
+                            AstNode **body_tail) {
   switch (p->tok->kind) {
 
-  case AUTO: return parse_auto_s(p, symtab, stack_offset, body_tail); break;
+  case AUTO: return parse_auto_s(p, symtab, stack_offset, body_tail);
 
-  case EXTRN: return parse_extrn_s(p, body_tail); break;
+  case EXTRN: return parse_extrn_s(p, body_tail);
 
   case GOTO: return parse_goto_s(p); break;
 
@@ -259,7 +244,8 @@ AstNode *parse_scope_f(Parser *p, AstScope *parent, size_t parent_stack_offset, 
     if (p->tok->kind == C_BRACE) {
       break;
     }
-    AstNode *statement = parse_statements_f(p, scope_n, symtab, &stack_offset, body_tail);
+
+    AstNode *statement = parse_statements_f(p, scope_n, symtab, &stack_offset, &body_tail);
     if (statement) {
       add_node(&body_tail, statement);
     }
