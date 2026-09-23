@@ -1,0 +1,72 @@
+.\" Process this file with groff -mman -Tascii trident.1
+.TH TRIDENT 1 "September 2026" "Trident Compiler" "User Commands"
+.SH NAME
+trident \- compiler for the B programming language targeting amd64 assembly
+.SH SYNOPSIS
+.B trident
+[\fB\-h\fR|\fB\-\-help\fR]
+[\fB\-v\fR|\fB\-\-version\fR]
+.BR \-i " \fIinput_file\fR"
+[\fB\-o\fR " \fIoutput_file\fR"]
+[\fB\-r\fR|\fB\-\-add\-brt\fR]
+.SH DESCRIPTION
+.B Trident
+is a compiler for the \fBB programming language\fR, targeting \fBamd64\fR assembly output.
+\fBB\fR is a typeless systems programming language originally developed by Ken Thompson and Dennis Ritchie at Bell Labs, serving as the direct predecessor to C.
+.PP
+The compiler pipeline reads input B source code, lexes and parses the AST, and outputs assembly targeting nasm x86_64.
+.SH OPTIONS
+.TP
+.BR \-h ", " \-help
+Display usage instructions and options summary, then exit.
+.TP
+.BR \-v ", " \-version
+Display version information, underlying host compiler details, build timestamp, and exit.
+.TP
+.BI \-i " file" ", " \-input " file"
+Specify the input B source file path (e.g., \fIfile.b\fR). This option is required.
+.TP
+.BI \-o " file" ", " \-output " file"
+Specify the output assembly file path. Defaults to \fBout.asm\fR if unspecified.
+.TP
+.BR \-r ", " \-add\-brt
+Compile and link with the B runtime environment (\fBb-runtime\fR).
+.SH ENVIRONMENT & COMPLIANCE
+.B Trident
+is primarily designed and supported on \fBLinux\fR. Support for other platforms (e.g., Windows via \fBw64-mingw32\fR) is experimental.
+.SH EXIT STATUS
+.TP
+.B 0
+Successful compilation or clean exit after displaying version or help information.
+.TP
+.B 1
+An error occurred during execution (e.g., missing input file, invalid options, missing target file).
+.SH EXAMPLES
+.PP
+Compile a B program \fBmain.b\fR to the default output file (\fBout.asm\fR):
+.IP
+.B trident -i main.b
+.PP
+Compile \fBexample.b\fR with B-runtime support into custom assembly output \fBbuild/example.s\fR:
+.IP
+.B trident -i example.b -o build/example.s -r
+.PP
+Assemble and run using the project \fBMakefile\fR:
+.IP
+.B make run EXAMPLE=res/example.b
+.SH REQUIREMENTS
+.TP
+.B Required for Building
+\fBclang\fR, \fBmake\fR, \fBnasm\fR
+.TP
+.B Optional
+\fBclang-format\fR, \fBw64-mingw32\fR, \fBgperf\fR
+.SH AUTHOR
+Created by Parixit Sapkota (<https://github.com/parixitsapkota/tridentc>).
+.SH LICENSE
+\fBTrident\fR is distributed under the terms of the \fBApache License 2.0\fR.
+.SH SEE ALSO
+.BR nasm (1),
+.BR clang (1),
+.BR make (1),
+.BR gperf (1)

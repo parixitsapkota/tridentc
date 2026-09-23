@@ -15,6 +15,10 @@ RELEASE := -O3
 CFLAGS  := -Isrc -Wall -Wextra -Werror
 LDFLAGS :=
 
+# --- paths ---
+PREFIX    := /usr/local
+MANPREFIX := ${PREFIX}/share/man
+
 MODE    ?= debug
 BUILD   ?=
 
@@ -67,7 +71,7 @@ OBJECTS := $(patsubst src/%.c, $(BUILD)/%.o, $(C_SOURCES))
 SHI_SRC   := shi_arena.h shi_hs.h shi_flags.h shi_file.h
 SHI_FILES := $(patsubst %.h, src/dep/%.h, $(SHI_SRC))
 
-.PHONY: all dependency format
+.PHONY: all clean dependency format
 
 .DELETE_ON_ERROR:
 
@@ -90,7 +94,7 @@ src/dep/%.h:
 
 # Link the main exe
 $(OUTPUT): $(OBJECTS)
-	@echo -e "$(COLOR_GREEN)[#] Linking $(OUTPUT) $(COLOR_BLUE)$(MODE)$(COLOR_GREEN) mode...$(COLOR_RESET)"
+	@echo -e "$(COLOR_YELLOW)[#] Linking $(OUTPUT) $(COLOR_BLUE)$(MODE)$(COLOR_YELLOW) mode...$(COLOR_RESET)"
 	@$(CC) $(CFLAGS) $(OBJECTS) -o $(OUTPUT)
 
 $(OBJECTS):
@@ -123,6 +127,22 @@ format:
 	@echo -e "$(COLOR_BLUE)[-] Formatting source files...$(COLOR_RESET)"
 	@clang-format -i $(SRCFILES)
 
+# Install
+install: clean all
+	@echo "Installing $(OUTPUT)..."
+	@mkdir -p $(PREFIX)/bin
+	@cp -f $(OUTPUT) $(PREFIX)/bin
+	@chmod 755 $(PREFIX)/bin/$(OUTPUT)
+	@mkdir -p $(MANPREFIX)/man1
+	@sed "s/VERSION/$(VERSION)/g" < res/$(PROJECT).1 > $(MANPREFIX)/man1/$(PROJECT).1
+	@chmod 644 $(MANPREFIX)/man1/$(PROJECT).1
+	@echo "Installed $(OUTPUT) to $(PREFIX)/bin/.."
+
+# Uninstall
+uninstall:
+	@rm -f $(MANPREFIX)/man1/$(OUTPUT).1
+	@rm -f $(PREFIX)/bin/$(OUTPUT)
+
 EXAMPLE ?= $(wildcard examples/*.b)
 
 run:
@@ -132,7 +152,7 @@ run:
 	@for file in $(EXAMPLE); do \
 		name=$$(basename "$$file" .b); \
 		printf "$(COLOR_MAGENTA)[+] Compiling $$file...$(COLOR_RESET)\n"; \
-		./$(OUTPUT) -i "$$file" -o "examples/$$name.asm" || exit 1; \
+		./$(OUTPUT) -i "$$file" -o "examples/$$name.asm" -r || exit 1; \
 		printf "$(COLOR_GREEN)[+] Assembling examples/$$name.asm...$(COLOR_RESET)\n"; \
 		nasm -f elf64 "examples/$$name.asm" -o "examples/$$name.o" || exit 1; \
 		printf "$(COLOR_YELLOW)[#] Linking examples/$$name.o...$(COLOR_RESET)\n"; \
@@ -140,5 +160,3 @@ run:
 		./examples/$$name.bin; status=$$?; \
 		printf "$(COLOR_BLUE)[+] $$name.b : Exit-code : $(COLOR_RED)%d$(COLOR_RESET)\n\n" $$status; \
 	done
-
-.PHONY: all clean format
