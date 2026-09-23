@@ -3,10 +3,10 @@
 
 #include <stddef.h>
 
-#include "shi/shi_arena.h"
-#include "shi/shi_hs.h"
+#include "dep/shi_arena.h"
+#include "dep/shi_hs.h"
 
-#include "token.h"
+#include "lexer.h"
 
 typedef struct AstNode AstNode;
 
@@ -70,7 +70,7 @@ typedef enum {
   AST_FUNCTION,
   AST_FUNCTION_CALL,
   AST_FUNCTION_ARGS,
-  AST_EXTERN,
+  AST_EXTRN,
   AST_AUTO,
   AST_IF,
   AST_ELSE_IF,
@@ -96,8 +96,7 @@ struct AstNode {
     AstWhile *while_n;
     AstGlobal *global_n;
     AstNode *node;
-    const char *lable;
-    size_t auto_var_size;
+    const char *name_s;
   };
   // Position
   Position position;

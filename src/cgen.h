@@ -1,9 +1,11 @@
 #ifndef _TRIDENT_CGEN_H_
 #define _TRIDENT_CGEN_H_
 
+#include <stdio.h>
+
 #include "ast.h"
+#include "lexer.h"
 #include "parser.h"
-#include "token.h"
 
 // Codegen Structure
 typedef struct {
@@ -21,7 +23,9 @@ typedef struct {
 /// Returns a Cgen context based on given Parser context.
 Cgen *init_cgen(Parser *p, const char *file_path);
 /// generates asm based on the given context and mutates the cgen state accordingly.
-void cgen(Cgen *c);
+void cgen(Cgen *c, bool brt);
+/// generates _start asm to current cgen context.
+void cgen_start(Cgen *c);
 /// Frees the allocated memory in the cgen context.
 void free_cgen(Cgen *c);
 

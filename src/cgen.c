@@ -5,7 +5,7 @@
 
 #include "ast.h"
 #include "cgen.h"
-#include "token.h"
+#include "lexer.h"
 
 Cgen *init_cgen(Parser *p, const char *file_path) {
   Cgen *c = malloc(sizeof(Cgen));
@@ -265,7 +265,12 @@ void cgen_expr_f(Cgen *c, AstNode *node, AstScope *scope) {
 void cgen_scope_f(Cgen *c, AstScope *scope);
 
 void cgen_auto_s(Cgen *c) {
-  fprintf(c->file, "  sub rsp, %zu\n", (size_t)(c->t_node->auto_var_size * 8));
+  fprintf(c->file, "  sub rsp, 8 ;; var : %s\n", c->t_node->name_s);
+  return;
+}
+
+void cgen_extrn_s(Cgen *c) {
+  fprintf(c->file, "  extern %s\n", c->t_node->name_s);
   return;
 }
 
@@ -360,6 +365,8 @@ void cgen_statement(Cgen *c, AstNode *curr, AstScope *scope) {
 
   case AST_AUTO: cgen_auto_s(c); break;
 
+  case AST_EXTRN: cgen_extrn_s(c); break;
+
   case AST_EXPR:
     cgen_expr_f(c, curr->node, scope);
     fprintf(c->file, "  add rsp, 8\n");
@@ -371,11 +378,13 @@ void cgen_statement(Cgen *c, AstNode *curr, AstScope *scope) {
 
   case AST_WHILE: cgen_while_s(c, curr, curr->while_n->body->scope_n->parent); break;
 
-  case AST_LABLE: fprintf(c->file, ".L_%s:\n", curr->lable); break;
+  case AST_LABLE: fprintf(c->file, ".L_%s:\n", curr->name_s); break;
 
-  case AST_GOTO: fprintf(c->file, "  jmp .L_%s\n", curr->lable); break;
+  case AST_GOTO: fprintf(c->file, "  jmp .L_%s\n", curr->name_s); break;
 
-  default: break;
+  default:
+    fprintf(stderr, "FATAL: Unhandled node kind (%d) in cgen_statement\n", (int)curr->kind);
+    break;
   }
 }
 
@@ -400,7 +409,10 @@ void cgen_scope_f(Cgen *c, AstScope *scope) {
 void cgen_function_s(Cgen *c) {
   c->if_lable_c = 0;
 
-  fprintf(c->file, "%s:\n", c->t_node->function_n->name);
+  const char *func_name = c->t_node->function_n->name;
+
+  fprintf(c->file, "global %s\n", func_name);
+  fprintf(c->file, "%s:\n", func_name);
   fprintf(c->file, "  push rbp\n");
   fprintf(c->file, "  mov rbp, rsp\n");
 
@@ -422,10 +434,9 @@ void cgen_function_s(Cgen *c) {
   c->t_node = save_func->next;
 }
 
-void cgen(Cgen *c) {
+void cgen(Cgen *c, bool brt) {
   fprintf(c->file, "; MODULE : %s\n", c->p->l->file);
   fprintf(c->file, "default rel\n");
-  fprintf(c->file, "global _start\n");
 
   fprintf(c->file, "\nsection .text\n\n");
 
@@ -438,11 +449,9 @@ void cgen(Cgen *c) {
     }
   }
 
-  fprintf(c->file, "_start:\n");
-  fprintf(c->file, "  call main\n");
-  fprintf(c->file, "  mov rdi, rax\n");
-  fprintf(c->file, "  mov rax, 0x3C\n");
-  fprintf(c->file, "  syscall\n");
+  if (brt) {
+    cgen_start(c);
+  }
 
   fprintf(c->file, "\nsection .data\n\n");
 
@@ -457,6 +466,17 @@ void cgen(Cgen *c) {
       c->t_node = c->t_node->next;
     }
   }
+}
+
+void cgen_start(Cgen *c) {
+  fprintf(c->file,
+          // _start [BRT](b runtime)
+          "global _start\n\n"
+          "_start:\n"
+          "  call main\n"
+          "  mov rdi, rax\n"
+          "  mov rax, 0x3C\n"
+          "  syscall\n");
 }
 
 void free_cgen(Cgen *c) {

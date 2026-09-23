@@ -1,3 +1,5 @@
+#include "dep/shi_arena.h"
+
 #include "ast.h"
 
 VarInfo *var_info(Arena *arena, VarKind kind, size_t offset) {

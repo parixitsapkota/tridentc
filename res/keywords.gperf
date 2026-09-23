@@ -1,6 +1,6 @@
 %{
 #include <string.h>
-#include "token.h"
+#include "../lexer.h"
 %}
 
 %struct-type
@@ -10,7 +10,7 @@ struct Keyword {
 };
 
 %%
-extern,  EXTERN
+extrn,  EXTRN
 auto,    AUTO
 if,      IF
 else,    ELSE

@@ -10,15 +10,14 @@ COLOR_MAGENTA := \033[1;35m
 PROJECT := trident
 CC      = clang
 
-VERSION       := 0.0.1 $(shell date "+%d%m%Y")
-TIME_INFO     := $(shell date "+%Y/%m/%d %H:%M:%S:%p")
-COMPILER_INFO := $(shell $(CC) --version | head -n 1 | cut -d' ' -f1-3)
-
 DEBUG   := -fsanitize=address -g -O0
 RELEASE := -O3
 CFLAGS  := -Isrc -Wall -Wextra -Werror
-CFLAGS  := -DVERSION_INFO="\"$(VERSION)\"" -DTIME_INFO="\"$(TIME_INFO)\"" -DCC_INFO="\"$(COMPILER_INFO)\""
 LDFLAGS :=
+
+# --- paths ---
+PREFIX    := /usr/local
+MANPREFIX := ${PREFIX}/share/man
 
 MODE    ?= debug
 BUILD   ?=
@@ -31,6 +30,15 @@ else
   BUILD  := build/debug
 endif
 
+# --- Information ---
+VERSION       := 0.0.1 $(MODE)-$(shell date "+%d%m%Y")
+TIME_INFO     := $(shell date "+%Y/%m/%d %H:%M:%S:%p")
+COMPILER_INFO := $(shell $(CC) --version | head -n 1 | cut -d' ' -f1-3)
+
+CFLAGS += -DVERSION_INFO="\"$(VERSION)\"" -DTIME_INFO="\"$(TIME_INFO)\""
+CFLAGS += -DCC_INFO="\"$(COMPILER_INFO)\""
+
+# --- Platform ---
 PLATFORM ?= linux
 OUTPUT   ?=
 
@@ -61,27 +69,32 @@ SRCFILES  := $(C_SOURCES) $(H_HEADERS)
 OBJECTS := $(patsubst src/%.c, $(BUILD)/%.o, $(C_SOURCES))
 
 SHI_SRC   := shi_arena.h shi_hs.h shi_flags.h shi_file.h
-SHI_FILES := $(patsubst %.h, src/shi/%.h, $(SHI_SRC))
+SHI_FILES := $(patsubst %.h, src/dep/%.h, $(SHI_SRC))
 
-.PHONY: all dependency format
+.PHONY: all clean dependency format
 
 .DELETE_ON_ERROR:
 
 all: format dependency $(OUTPUT)
 
-dependency: $(SHI_FILES)
+dependency: $(SHI_FILES) src/dep/keywords.h
 
 $(SHI_FILES):
 
+src/dep/keywords.h: res/keywords.gperf
+	@mkdir -p $(dir $@)
+	@printf "$(COLOR_MAGENTA)[+] Creating $@...$(COLOR_RESET)\n"
+	@gperf -N get_keyword_kind -t $< > $@
+
 # rule to download missing SHI headers
-src/shi/%.h:
+src/dep/%.h:
 	@mkdir -p $(dir $@)
 	@printf "$(COLOR_MAGENTA)[+] Downloading $@...$(COLOR_RESET)\n"
 	@wget -q https://raw.githubusercontent.com/parixitsapkota/SHI/refs/heads/main/$(notdir $@) -O $@ || (rm -f $@ && exit 1)
 
 # Link the main exe
 $(OUTPUT): $(OBJECTS)
-	@echo -e "$(COLOR_GREEN)[#] Linking $(OUTPUT) $(COLOR_BLUE)$(MODE)$(COLOR_GREEN) mode...$(COLOR_RESET)"
+	@echo -e "$(COLOR_YELLOW)[#] Linking $(OUTPUT) $(COLOR_BLUE)$(MODE)$(COLOR_YELLOW) mode...$(COLOR_RESET)"
 	@$(CC) $(CFLAGS) $(OBJECTS) -o $(OUTPUT)
 
 $(OBJECTS):
@@ -93,23 +106,53 @@ $(BUILD)/%.o: src/%.c
 	@$(CC) $(CFLAGS) -c $< -o $@
 
 # Clean build artifact
-clean:
+clean: clean_build
+
+clean_all: clean_build clean_examples clean_deps
+
+clean_build:
 	@echo -e "$(COLOR_BLUE)[-] Cleaning build artifacts...$(COLOR_RESET)"
-	@rm -rf build/ src/shi/ examples/*.o examples/*.asm examples/*.bin $(PROJECT) $(PROJECT).exe
+	@rm -rf build/ $(PROJECT) $(PROJECT).exe
+
+clean_examples:
+	@echo -e "$(COLOR_BLUE)[-] Cleaning examples artifacts...$(COLOR_RESET)"
+	@rm -rf examples/*.o examples/*.asm examples/*.bin
+
+clean_deps:
+	@echo -e "$(COLOR_BLUE)[-] Cleaning dependencies...$(COLOR_RESET)"
+	@rm -rf src/dep/
 
 # Format sourcefile
 format:
 	@echo -e "$(COLOR_BLUE)[-] Formatting source files...$(COLOR_RESET)"
 	@clang-format -i $(SRCFILES)
 
+# Install
+install: clean all
+	@echo "Installing $(OUTPUT)..."
+	@mkdir -p $(PREFIX)/bin
+	@cp -f $(OUTPUT) $(PREFIX)/bin
+	@chmod 755 $(PREFIX)/bin/$(OUTPUT)
+	@mkdir -p $(MANPREFIX)/man1
+	@sed "s/VERSION/$(VERSION)/g" < res/$(PROJECT).1 > $(MANPREFIX)/man1/$(PROJECT).1
+	@chmod 644 $(MANPREFIX)/man1/$(PROJECT).1
+	@echo "Installed $(OUTPUT) to $(PREFIX)/bin/.."
+
+# Uninstall
+uninstall:
+	@rm -f $(MANPREFIX)/man1/$(OUTPUT).1
+	@rm -f $(PREFIX)/bin/$(OUTPUT)
+
 EXAMPLE ?= $(wildcard examples/*.b)
 
 run:
 	@printf "\n\n"
+	@./$(OUTPUT) -v
+	@printf "\n\n"
 	@for file in $(EXAMPLE); do \
 		name=$$(basename "$$file" .b); \
 		printf "$(COLOR_MAGENTA)[+] Compiling $$file...$(COLOR_RESET)\n"; \
-		./$(OUTPUT) -i "$$file" -o "examples/$$name.asm" || exit 1; \
+		./$(OUTPUT) -i "$$file" -o "examples/$$name.asm" -r || exit 1; \
 		printf "$(COLOR_GREEN)[+] Assembling examples/$$name.asm...$(COLOR_RESET)\n"; \
 		nasm -f elf64 "examples/$$name.asm" -o "examples/$$name.o" || exit 1; \
 		printf "$(COLOR_YELLOW)[#] Linking examples/$$name.o...$(COLOR_RESET)\n"; \
@@ -117,5 +160,3 @@ run:
 		./examples/$$name.bin; status=$$?; \
 		printf "$(COLOR_BLUE)[+] $$name.b : Exit-code : $(COLOR_RED)%d$(COLOR_RESET)\n\n" $$status; \
 	done
-
-.PHONY: all clean format
