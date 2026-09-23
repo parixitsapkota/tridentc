@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -22,6 +23,9 @@ int main(int argc, char *argv[]) {
 
   char **output = shi_flag_str("-output", "out.asm", "output file name.");
   shi_flag_set_short(output, "o");
+
+  bool *_start = shi_flag_bool("-add-brt", false, "compile with b-runtime.");
+  shi_flag_set_short(_start, "r");
 
   if (!shi_flag_parse(argc, argv)) {
     shi_flag_print_error(stderr);
@@ -69,7 +73,11 @@ int main(int argc, char *argv[]) {
 
   Cgen *c = init_cgen(p, *output);
 
-  cgen(c);
+  if (*_start) {
+    cgen(c, true);
+  } else {
+    cgen(c, false);
+  }
 
   free_lexer(l);
   free_parser(p);

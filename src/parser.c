@@ -228,6 +228,7 @@ AstNode *parse_statements_f(Parser *p, AstScope *parent, Hs *symtab, size_t *sta
     if (ppeak(p) && ppeak(p)->kind == COLON) {
       return parse_lable_s(p);
     }
+    [[fallthrough]];
 
   default: return parse_expr_s(p);
   }

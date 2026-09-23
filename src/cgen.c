@@ -409,7 +409,10 @@ void cgen_scope_f(Cgen *c, AstScope *scope) {
 void cgen_function_s(Cgen *c) {
   c->if_lable_c = 0;
 
-  fprintf(c->file, "%s:\n", c->t_node->function_n->name);
+  const char *func_name = c->t_node->function_n->name;
+
+  fprintf(c->file, "global %s\n", func_name);
+  fprintf(c->file, "%s:\n", func_name);
   fprintf(c->file, "  push rbp\n");
   fprintf(c->file, "  mov rbp, rsp\n");
 
@@ -431,10 +434,9 @@ void cgen_function_s(Cgen *c) {
   c->t_node = save_func->next;
 }
 
-void cgen(Cgen *c) {
+void cgen(Cgen *c, bool brt) {
   fprintf(c->file, "; MODULE : %s\n", c->p->l->file);
   fprintf(c->file, "default rel\n");
-  fprintf(c->file, "global _start\n");
 
   fprintf(c->file, "\nsection .text\n\n");
 
@@ -447,11 +449,9 @@ void cgen(Cgen *c) {
     }
   }
 
-  fprintf(c->file, "_start:\n");
-  fprintf(c->file, "  call main\n");
-  fprintf(c->file, "  mov rdi, rax\n");
-  fprintf(c->file, "  mov rax, 0x3C\n");
-  fprintf(c->file, "  syscall\n");
+  if (brt) {
+    cgen_start(c);
+  }
 
   fprintf(c->file, "\nsection .data\n\n");
 
@@ -466,6 +466,17 @@ void cgen(Cgen *c) {
       c->t_node = c->t_node->next;
     }
   }
+}
+
+void cgen_start(Cgen *c) {
+  fprintf(c->file,
+          // _start [BRT](b runtime)
+          "global _start\n\n"
+          "_start:\n"
+          "  call main\n"
+          "  mov rdi, rax\n"
+          "  mov rax, 0x3C\n"
+          "  syscall\n");
 }
 
 void free_cgen(Cgen *c) {
