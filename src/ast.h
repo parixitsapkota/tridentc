@@ -113,6 +113,7 @@ typedef enum {
 typedef struct {
   VarKind kind;
   size_t offset;
+  size_t temp_dest;
 } VarInfo;
 
 VarInfo *var_info(Arena *arena, VarKind kind, size_t offset);

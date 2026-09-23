@@ -8,6 +8,7 @@
 
 #include "cgen.h"
 #include "info.h"
+#include "ir.h"
 #include "lexer.h"
 #include "parser.h"
 
@@ -23,6 +24,9 @@ int main(int argc, char *argv[]) {
 
   char **output = shi_flag_str("-output", "out.asm", "output file name.");
   shi_flag_set_short(output, "o");
+
+  char **ir_output = shi_flag_str("-emmit-ir", NULL, "output file name for ir.");
+  shi_flag_set_short(ir_output, "ir");
 
   bool *_start = shi_flag_bool("-add-brt", false, "compile with b-runtime.");
   shi_flag_set_short(_start, "r");
@@ -71,17 +75,23 @@ int main(int argc, char *argv[]) {
   Parser *p = init_parser(l);
   parser(p);
 
-  Cgen *c = init_cgen(p, *output);
+  if (*ir_output) {
+    Ir *ir = init_ir(p, *ir_output);
+    gen_ir(ir);
+    dump_ir(ir);
+    free_ir(ir);
+  }
 
+  Cgen *c = init_cgen(p, *output);
   if (*_start) {
     cgen(c, true);
   } else {
     cgen(c, false);
   }
+  free_cgen(c);
 
   free_lexer(l);
   free_parser(p);
-  free_cgen(c);
   return 0;
 }
 
