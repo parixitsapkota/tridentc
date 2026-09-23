@@ -4,8 +4,8 @@
 #include <stdio.h>
 
 #include "ast.h"
+#include "lexer.h"
 #include "parser.h"
-#include "token.h"
 
 // Codegen Structure
 typedef struct {

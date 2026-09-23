@@ -65,7 +65,7 @@ SRCFILES  := $(C_SOURCES) $(H_HEADERS)
 OBJECTS := $(patsubst src/%.c, $(BUILD)/%.o, $(C_SOURCES))
 
 SHI_SRC   := shi_arena.h shi_hs.h shi_flags.h shi_file.h
-SHI_FILES := $(patsubst %.h, src/shi/%.h, $(SHI_SRC))
+SHI_FILES := $(patsubst %.h, src/dep/%.h, $(SHI_SRC))
 
 .PHONY: all dependency format
 
@@ -73,12 +73,17 @@ SHI_FILES := $(patsubst %.h, src/shi/%.h, $(SHI_SRC))
 
 all: format dependency $(OUTPUT)
 
-dependency: $(SHI_FILES)
+dependency: $(SHI_FILES) src/dep/keywords.h
 
 $(SHI_FILES):
 
+src/dep/keywords.h: res/keywords.gperf
+	@mkdir -p $(dir $@)
+	@printf "$(COLOR_MAGENTA)[+] Creating $@...$(COLOR_RESET)\n"
+	@gperf -N get_keyword_kind -t $< > $@
+
 # rule to download missing SHI headers
-src/shi/%.h:
+src/dep/%.h:
 	@mkdir -p $(dir $@)
 	@printf "$(COLOR_MAGENTA)[+] Downloading $@...$(COLOR_RESET)\n"
 	@wget -q https://raw.githubusercontent.com/parixitsapkota/SHI/refs/heads/main/$(notdir $@) -O $@ || (rm -f $@ && exit 1)
@@ -99,7 +104,7 @@ $(BUILD)/%.o: src/%.c
 # Clean build artifact
 clean: clean_build
 
-clean_all: clean clean_examples clean_shi
+clean_all: clean_build clean_examples clean_deps
 
 clean_build:
 	@echo -e "$(COLOR_BLUE)[-] Cleaning build artifacts...$(COLOR_RESET)"
@@ -109,9 +114,9 @@ clean_examples:
 	@echo -e "$(COLOR_BLUE)[-] Cleaning examples artifacts...$(COLOR_RESET)"
 	@rm -rf examples/*.o examples/*.asm examples/*.bin
 
-clean_shi:
-	@echo -e "$(COLOR_BLUE)[-] Cleaning shi headers...$(COLOR_RESET)"
-	@rm -rf src/shi/
+clean_deps:
+	@echo -e "$(COLOR_BLUE)[-] Cleaning dependencies...$(COLOR_RESET)"
+	@rm -rf src/dep/
 
 # Format sourcefile
 format:

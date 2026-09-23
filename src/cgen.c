@@ -5,7 +5,7 @@
 
 #include "ast.h"
 #include "cgen.h"
-#include "token.h"
+#include "lexer.h"
 
 Cgen *init_cgen(Parser *p, const char *file_path) {
   Cgen *c = malloc(sizeof(Cgen));

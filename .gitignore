@@ -5,7 +5,7 @@
 .zed/
 
 # Dependency
-src/shi/
+src/dep/
 
 # Build generated
 build/

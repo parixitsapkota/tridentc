@@ -3,8 +3,8 @@
 #include <stdlib.h>
 
 #include "ast.h"
+#include "lexer.h"
 #include "parser.h"
-#include "token.h"
 
 // Parser helper funcions
 Token *ppeak(const Parser *p);

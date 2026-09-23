@@ -3,8 +3,8 @@
 #include <stdlib.h>
 
 #include "ast.h"
+#include "lexer.h"
 #include "parser.h"
-#include "token.h"
 
 bool is_kind_literal(TokenKind kind) {
   switch (kind) {

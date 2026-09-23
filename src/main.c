@@ -2,8 +2,8 @@
 #include <stdlib.h>
 
 #define SHI_STRIP_PREFIX
-#include "shi/shi_file.h"
-#include "shi/shi_flags.h"
+#include "dep/shi_file.h"
+#include "dep/shi_flags.h"
 
 #include "cgen.h"
 #include "info.h"
@@ -78,10 +78,10 @@ int main(int argc, char *argv[]) {
 }
 
 #define SHI_ARENA_IMPLEMENTATION
-#include "shi/shi_arena.h"
+#include "dep/shi_arena.h"
 #define SHI_FILE_IMPLEMENTATION
-#include "shi/shi_file.h"
+#include "dep/shi_file.h"
 #define SHI_FLAGS_IMPLEMENTATION
-#include "shi/shi_flags.h"
+#include "dep/shi_flags.h"
 #define SHI_HS_IMPLEMENTATION
-#include "shi/shi_hs.h"
+#include "dep/shi_hs.h"
