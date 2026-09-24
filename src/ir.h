@@ -55,7 +55,9 @@ struct IrNode {
   IrKind kind;
 
   const char *name;
-  const char *val;
+  // const char *val;
+  size_t lable_id;
+  size_t lable_id_f;
   union {
     size_t params;
     size_t temp_dest;
@@ -74,7 +76,10 @@ typedef struct {
   Parser *p;
   const char *module;
   FILE *file;
+  // Counting
   size_t temp_c;
+  size_t lable_c;
+  // Nodes ptrs
   IrNode *ir_head;
   IrNode *ir_tail;
   IrNode *t_ir_tail;
@@ -92,6 +97,7 @@ bool is_mem_op(irop_t op);
 const char *irop_to_str(irop_t op);
 IrNode *new_ir_op(Arena *arena, size_t dest, irop_t op, size_t temp_1, size_t temp_2);
 IrNode *new_ir_named(Arena *arena, IrKind kind, const char *name, size_t dest);
+IrNode *new_ir_labled(Arena *arena, IrKind kind, size_t id, size_t id_f, size_t dest);
 void add_ir_node(IrNode **t_node, IrNode *node);
 
 #endif // _TRIDENT_IR_H_

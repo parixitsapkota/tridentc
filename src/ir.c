@@ -94,6 +94,12 @@ IrNode *new_ir_named(Arena *arena, IrKind kind, const char *name, size_t dest) {
   return node;
 }
 
+IrNode *new_ir_labled(Arena *arena, IrKind kind, size_t id, size_t id_f, size_t dest) {
+  IrNode *node = arena_alloc(arena, sizeof(IrNode));
+  *node = (IrNode){.kind = kind, .lable_id = id, .lable_id_f = id_f, .temp_dest = dest};
+  return node;
+}
+
 void add_ir_node(IrNode **t_node, IrNode *node) {
   if (!node) {
     return;
@@ -311,6 +317,25 @@ void ir_scope(Ir *ir, AstNode *scope_node, IrNode **block_tail) {
   }
 }
 
+void ir_while_s(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
+  size_t label_id = ++(ir->lable_c);
+
+  add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_LABEL, label_id, 0, 0));
+
+  size_t condition = ir_expr_f(ir, node->while_n->Condition, scope, block_tail);
+  add_ir_node(block_tail,
+              new_ir_labled(ir->ir_arena, IR_BRANCH, label_id + 2, label_id + 1, condition));
+  add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_LABEL, label_id + 1, 0, 0));
+
+  if (node->while_n->body && node->while_n->body->kind == AST_SCOPE) {
+    ir_scope(ir, node->while_n->body, block_tail);
+  }
+
+  add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_JUMP, label_id, 0, 0));
+  add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_LABEL, label_id + 2, 0, 0));
+  ir->lable_c += 2;
+}
+
 void ir_statements(Ir *ir, AstNode *curr, AstScope *scope, IrNode **block_tail) {
   Arena *arena = ir->ir_arena;
   switch (curr->kind) {
@@ -319,8 +344,11 @@ void ir_statements(Ir *ir, AstNode *curr, AstScope *scope, IrNode **block_tail) 
   case AST_AUTO: ir_auto_s(ir, curr, scope, block_tail); break;
   case AST_EXTRN: add_ir_node(block_tail, new_ir_named(arena, IR_EXTRN, curr->name_s, 0)); break;
   case AST_EXPR: ir_expr_f(ir, curr->node, scope, block_tail); break;
-  case AST_LABLE: add_ir_node(block_tail, new_ir_named(arena, IR_LABEL, curr->name_s, 0)); break;
-  case AST_GOTO: add_ir_node(block_tail, new_ir_named(arena, IR_JUMP, curr->name_s, 0)); break;
+  case AST_WHILE: ir_while_s(ir, curr, curr->while_n->body->scope_n->parent, block_tail); break;
+  case AST_LABLE:
+    add_ir_node(block_tail, new_ir_labled(arena, IR_LABEL, ++(ir->lable_c), 0, 0));
+    break;
+  case AST_GOTO: add_ir_node(block_tail, new_ir_labled(arena, IR_JUMP, ir->lable_c, 0, 0)); break;
   default: ir_fatal("Unhandled node kind (%d) in ir_statements", (int)curr->kind);
   }
 }
@@ -332,8 +360,9 @@ IrNode *ir_function_s(Ir *ir, AstNode *func) {
 
   ir->temp_c = 0;
 
+  size_t entry_label = ++(ir->lable_c);
   IrNode *entry = arena_alloc(ir->ir_arena, sizeof(IrNode));
-  *entry = (IrNode){.kind = IR_LABEL, .name = "entry"};
+  *entry = (IrNode){.kind = IR_LABEL, .lable_id = entry_label};
   IrNode *block_tail = entry;
 
   ir_scope(ir, body_scope, &block_tail);
@@ -390,10 +419,13 @@ void dump_ir(Ir *ir, FILE *f) {
       fprintf(f, "func $%s() %zu {\n", curr->name, curr->params);
       for (IrNode *t = curr->nodes; t != NULL; t = t->next) {
         switch (t->kind) {
-        case IR_LABEL: fprintf(f, "@%s\n", t->name); break;
+        case IR_LABEL: fprintf(f, "@L%zu:\n", t->lable_id); break;
         case IR_OPERATION: dump_op(f, t); break;
         case IR_EXTRN: fprintf(f, "  extrn %s\n", t->name); break;
-        case IR_JUMP: fprintf(f, "  jmp @%s\n", t->name); break;
+        case IR_JUMP: fprintf(f, "  jmp .L%zu\n", t->lable_id); break;
+        case IR_BRANCH:
+          fprintf(f, "  br %%t%zu, .L%zu, .L%zu\n", t->temp_dest, t->lable_id, t->lable_id_f);
+          break;
         case IR_RETURN:
           if (t->temp_dest) {
             fprintf(f, "  ret %%t%zu\n", t->temp_dest);
@@ -403,8 +435,7 @@ void dump_ir(Ir *ir, FILE *f) {
           break;
         case IR_MODULE:
         case IR_FUNCTION:
-        case IR_CALL:
-        case IR_BRANCH: break;
+        case IR_CALL: break;
         }
       }
       fprintf(f, "}\n");

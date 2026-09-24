@@ -143,10 +143,16 @@ static void asm_function(FILE *f, const IrNode *fn) {
   size_t alloc_i = 0;
   for (const IrNode *t = fn->nodes; t; t = t->next) {
     switch (t->kind) {
-    case IR_LABEL: fprintf(f, ".%s:\n", t->name); break;
+    case IR_LABEL: fprintf(f, ".L%zu:\n", t->lable_id); break;
     case IR_OPERATION: asm_op(f, t, &alloc_i, max_t, n_alloc); break;
     case IR_EXTRN: fprintf(f, "  extern %s\n", t->name); break;
-    case IR_JUMP: fprintf(f, "  jmp .%s\n", t->name); break;
+    case IR_JUMP: fprintf(f, "  jmp .L%zu\n", t->lable_id); break;
+    case IR_BRANCH:
+      ld(f, "rax", t->temp_dest);
+      fprintf(f, "  test rax, rax\n");
+      fprintf(f, "  jnz .L%zu\n", t->lable_id_f);
+      fprintf(f, "  jmp .L%zu\n", t->lable_id);
+      break;
     case IR_RETURN:
       if (t->temp_dest) {
         ld(f, "rax", t->temp_dest);
