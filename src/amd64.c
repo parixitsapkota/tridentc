@@ -150,8 +150,8 @@ static void asm_function(FILE *f, const IrNode *fn) {
     case IR_BRANCH:
       ld(f, "rax", t->temp_dest);
       fprintf(f, "  test rax, rax\n");
-      fprintf(f, "  jnz .L%zu\n", t->lable_id_f);
-      fprintf(f, "  jmp .L%zu\n", t->lable_id);
+      fprintf(f, "  jnz .L%zu\n", t->lable_id);
+      fprintf(f, "  jmp .L%zu\n", t->lable_id_f);
       break;
     case IR_RETURN:
       if (t->temp_dest) {

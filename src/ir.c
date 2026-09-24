@@ -317,6 +317,44 @@ void ir_scope(Ir *ir, AstNode *scope_node, IrNode **block_tail) {
   }
 }
 
+void ir_if_chain_s(Ir *ir, AstNode *curr, AstScope *scope, size_t end_label_id,
+                   IrNode **block_tail) {
+  if (!curr) {
+    return;
+  }
+
+  if (curr->kind == AST_IF || curr->kind == AST_ELSE_IF) {
+    size_t then_label = ++(ir->lable_c);
+    size_t next_label = ++(ir->lable_c);
+
+    size_t condition = ir_expr_f(ir, curr->if_n->Condition, scope, block_tail);
+    add_ir_node(block_tail,
+                new_ir_labled(ir->ir_arena, IR_BRANCH, then_label, next_label, condition));
+    add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_LABEL, then_label, 0, 0));
+
+    if (curr->if_n->body && curr->if_n->body->kind == AST_SCOPE) {
+      ir_scope(ir, curr->if_n->body, block_tail);
+    }
+
+    add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_JUMP, end_label_id, 0, 0));
+    add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_LABEL, next_label, 0, 0));
+
+    if (curr->if_n->chain) {
+      ir_if_chain_s(ir, curr->if_n->chain, scope, end_label_id, block_tail);
+    }
+  } else if (curr->kind == AST_ELSE) {
+    if (curr->kind == AST_SCOPE || curr->scope_n) {
+      ir_scope(ir, curr, block_tail);
+    }
+  }
+}
+
+void ir_if_s(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
+  size_t end_label_id = ++(ir->lable_c);
+  ir_if_chain_s(ir, node, scope, end_label_id, block_tail);
+  add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_LABEL, end_label_id, 0, 0));
+}
+
 void ir_while_s(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
   size_t label_id = ++(ir->lable_c);
 
@@ -324,7 +362,7 @@ void ir_while_s(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
 
   size_t condition = ir_expr_f(ir, node->while_n->Condition, scope, block_tail);
   add_ir_node(block_tail,
-              new_ir_labled(ir->ir_arena, IR_BRANCH, label_id + 2, label_id + 1, condition));
+              new_ir_labled(ir->ir_arena, IR_BRANCH, label_id + 1, label_id + 2, condition));
   add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_LABEL, label_id + 1, 0, 0));
 
   if (node->while_n->body && node->while_n->body->kind == AST_SCOPE) {
@@ -344,6 +382,7 @@ void ir_statements(Ir *ir, AstNode *curr, AstScope *scope, IrNode **block_tail) 
   case AST_AUTO: ir_auto_s(ir, curr, scope, block_tail); break;
   case AST_EXTRN: add_ir_node(block_tail, new_ir_named(arena, IR_EXTRN, curr->name_s, 0)); break;
   case AST_EXPR: ir_expr_f(ir, curr->node, scope, block_tail); break;
+  case AST_IF: ir_if_s(ir, curr, curr->if_n->body->scope_n->parent, block_tail); break;
   case AST_WHILE: ir_while_s(ir, curr, curr->while_n->body->scope_n->parent, block_tail); break;
   case AST_LABLE:
     add_ir_node(block_tail, new_ir_labled(arena, IR_LABEL, ++(ir->lable_c), 0, 0));
