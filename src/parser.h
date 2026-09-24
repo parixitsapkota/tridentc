@@ -19,6 +19,7 @@ typedef struct {
   Hs *global_table;
   Hs *functions_table;
   // Helper/Temp vars
+  Hs *t_lable_tab;
   Token *tok;
   AstNode *t_node;
 } Parser;

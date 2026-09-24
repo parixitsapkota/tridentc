@@ -316,6 +316,30 @@ void ir_auto_s(Ir *ir, AstNode *curr, AstScope *scope, IrNode **block_tail) {
   info->temp_dest = emit_op(ir, block_tail, OP_ALLOC, 0, 0);
 }
 
+void ir_lable_s(Ir *ir, AstNode *curr, IrNode **block_tail) {
+  if (ir->t_lable_tab && has_in_hash_set(ir->t_lable_tab, curr->name_s)) {
+    VarInfo *info = get_from_hash_set(ir->t_lable_tab, curr->name_s);
+    if (info->temp_dest == 0) {
+      info->temp_dest = ++(ir->lable_c);
+    }
+    add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_LABEL, info->temp_dest, 0, 0));
+  } else {
+    ir_fatal("No lable %s in current resolution.", curr->name_s);
+  }
+}
+
+void ir_goto_s(Ir *ir, AstNode *curr, IrNode **block_tail) {
+  if (ir->t_lable_tab && has_in_hash_set(ir->t_lable_tab, curr->name_s)) {
+    VarInfo *info = get_from_hash_set(ir->t_lable_tab, curr->name_s);
+    if (info->temp_dest == 0) {
+      info->temp_dest = ++(ir->lable_c);
+    }
+    add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_JUMP, info->temp_dest, 0, 0));
+  } else {
+    ir_fatal("No lable %s in current resolution.", curr->name_s);
+  }
+}
+
 void ir_extrn_s(Ir *ir, AstNode *curr) {
   add_ir_node(&ir->ir_tail, new_ir_named(ir->ir_arena, IR_EXTRN, curr->name_s, 0));
 }
@@ -402,7 +426,6 @@ void ir_while_s(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
 }
 
 void ir_statements(Ir *ir, AstNode *curr, AstScope *scope, IrNode **block_tail) {
-  Arena *arena = ir->ir_arena;
   switch (curr->kind) {
   case AST_RETURN: ir_return_s(ir, curr, scope, block_tail); break;
   case AST_SCOPE: ir_scope(ir, curr, block_tail); break;
@@ -411,10 +434,8 @@ void ir_statements(Ir *ir, AstNode *curr, AstScope *scope, IrNode **block_tail) 
   case AST_EXPR: ir_expr_f(ir, curr->node, scope, block_tail); break;
   case AST_IF: ir_if_s(ir, curr, curr->if_n->body->scope_n->parent, block_tail); break;
   case AST_WHILE: ir_while_s(ir, curr, curr->while_n->body->scope_n->parent, block_tail); break;
-  case AST_LABLE:
-    add_ir_node(block_tail, new_ir_labled(arena, IR_LABEL, ++(ir->lable_c), 0, 0));
-    break;
-  case AST_GOTO: add_ir_node(block_tail, new_ir_labled(arena, IR_JUMP, ir->lable_c, 0, 0)); break;
+  case AST_LABLE: ir_lable_s(ir, curr, block_tail); break;
+  case AST_GOTO: ir_goto_s(ir, curr, block_tail); break;
   default: ir_fatal("Unhandled node kind (%d) in ir_statements", (int)curr->kind);
   }
 }
@@ -424,6 +445,7 @@ IrNode *ir_function_s(Ir *ir, AstNode *func) {
   size_t params = func->function_n->params;
   AstNode *body_scope = func->function_n->body;
 
+  ir->t_lable_tab = func->function_n->lable_tab;
   ir->temp_c = params;
   ir->lable_c = 0;
 
@@ -446,6 +468,7 @@ IrNode *ir_function_s(Ir *ir, AstNode *func) {
   }
 
   free_hash_set(func->function_n->params_tab);
+  free_hash_set(func->function_n->lable_tab);
 
   IrNode *func_node = arena_alloc(ir->ir_arena, sizeof(IrNode));
   *func_node = (IrNode){.kind = IR_FUNCTION, .name = func_name, .params = params, .nodes = entry};

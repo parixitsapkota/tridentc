@@ -85,6 +85,7 @@ typedef struct {
   Arena *args_arena;
   // Helper/Temp vars
   AstNode *t_node;
+  Hs *t_lable_tab;
 } Ir;
 
 Ir *init_ir(Parser *p, const char *file_path);

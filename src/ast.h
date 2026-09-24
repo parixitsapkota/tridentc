@@ -37,6 +37,7 @@ typedef struct {
   const char *name;
   AstNode *body;
   Hs *params_tab;
+  Hs *lable_tab;
   size_t params;
 } AstFunction;
 
@@ -108,6 +109,7 @@ typedef enum {
   AUTO_VAR,
   GLOBAL_VAR,
   PARAM_VAR,
+  LABLE_S,
 } VarKind;
 
 typedef struct {
@@ -122,8 +124,8 @@ AstAtom *new_ast_atom(Arena *arena, TokenKind kind, const char *value);
 AstUnary *new_ast_unary(Arena *arena, AstNode *node, TokenKind op);
 AstBinary *new_ast_binary(Arena *arena, AstNode *left, TokenKind op, AstNode *right);
 AstScope *new_ast_scope(Arena *arena, Hs *symtab, AstScope *parent, AstNode *body);
-AstFunction *new_ast_function(Arena *arena, const char *name, Hs *params_tab, size_t params,
-                              AstNode *body);
+AstFunction *new_ast_function(Arena *arena, const char *name, Hs *params_tab, Hs *lable_tab,
+                              size_t params, AstNode *body);
 AstFunctionCall *new_ast_function_call(Arena *arena, const char *name, AstNode *args,
                                        size_t argc);
 AstIf *new_ast_conditional(Arena *arena, AstNode *Condition, AstNode *body, AstNode *chain);

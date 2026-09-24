@@ -32,11 +32,14 @@ AstScope *new_ast_scope(Arena *arena, Hs *symtab, AstScope *parent, AstNode *bod
   return scope;
 }
 
-AstFunction *new_ast_function(Arena *arena, const char *name, Hs *params_tab, size_t params,
-                              AstNode *body) {
+AstFunction *new_ast_function(Arena *arena, const char *name, Hs *params_tab, Hs *lable_tab,
+                              size_t params, AstNode *body) {
   AstFunction *function = arena_alloc(arena, sizeof(AstFunction));
-  *function =
-      (AstFunction){.name = name, .params_tab = params_tab, .params = params, .body = body};
+  *function = (AstFunction){.name = name,
+                            .params_tab = params_tab,
+                            .lable_tab = lable_tab,
+                            .params = params,
+                            .body = body};
   return function;
 }
 
