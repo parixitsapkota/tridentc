@@ -1,6 +1,8 @@
 #ifndef _TRIDENT_IR_H_
 #define _TRIDENT_IR_H_
 
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -30,8 +32,11 @@ typedef enum {
   OP_LE,
   // MemoryOP
   OP_ALLOC,
+  OP_ADDRESS,
   OP_LOAD,
   OP_STORE,
+  // Constant immediate
+  OP_CONST,
 } irop_t;
 
 typedef enum {
@@ -58,6 +63,7 @@ struct IrNode {
   irop_t op;
   size_t temp_1;
   size_t temp_2;
+  size_t imm;
 
   IrNode *nodes;
   IrNode *next;
@@ -82,6 +88,7 @@ void free_ir(Ir *ir);
 void gen_ir(Ir *ir);
 void dump_ir(Ir *ir);
 
+// helper functions
 bool is_mem_op(irop_t op);
 const char *irop_to_str(irop_t op);
 IrNode *new_ir_op(Arena *arena, size_t dest, irop_t op, size_t temp_1, size_t temp_2);
