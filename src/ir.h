@@ -86,7 +86,6 @@ typedef struct {
 Ir *init_ir(Parser *p, const char *file_path);
 void free_ir(Ir *ir);
 void gen_ir(Ir *ir);
-void dump_ir(Ir *ir);
 
 // helper functions
 bool is_mem_op(irop_t op);

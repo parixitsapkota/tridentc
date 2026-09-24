@@ -1,11 +1,12 @@
-#include "ir.h"
-#include "ast.h"
-#include "lexer.h"
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "ast.h"
+#include "ir.h"
+#include "lexer.h"
 
 _Noreturn void ir_fatal(const char *fmt, ...) {
   va_list ap;
@@ -304,6 +305,10 @@ void ir_scope(Ir *ir, AstNode *scope_node, IrNode **block_tail) {
     ir->t_node = curr;
     ir_statements(ir, curr, inner_scope, block_tail);
   }
+
+  if (inner_scope->symtab) {
+    free_hash_set(inner_scope->symtab);
+  }
 }
 
 void ir_statements(Ir *ir, AstNode *curr, AstScope *scope, IrNode **block_tail) {
@@ -337,6 +342,8 @@ IrNode *ir_function_s(Ir *ir, AstNode *func) {
     size_t zero = emit_const(ir, &block_tail, 0);
     add_ir_node(&block_tail, new_ir_named(ir->ir_arena, IR_RETURN, NULL, zero));
   }
+
+  free_hash_set(func->function_n->params_tab);
 
   IrNode *func_node = arena_alloc(ir->ir_arena, sizeof(IrNode));
   *func_node = (IrNode){.kind = IR_FUNCTION, .name = func_name, .params = params, .nodes = entry};
@@ -374,24 +381,24 @@ void dump_op(FILE *f, const IrNode *n) {
   }
 }
 
-void dump_ir(Ir *ir) {
+void dump_ir(Ir *ir, FILE *f) {
   for (IrNode *curr = ir->ir_head; curr != NULL; curr = curr->next) {
     switch (curr->kind) {
-    case IR_MODULE: fprintf(ir->file, "module \"%s\"\n\n", curr->name); break;
+    case IR_MODULE: fprintf(f, "module \"%s\"\n\n", curr->name); break;
 
     case IR_FUNCTION: {
-      fprintf(ir->file, "func $%s() %zu {\n", curr->name, curr->params);
+      fprintf(f, "func $%s() %zu {\n", curr->name, curr->params);
       for (IrNode *t = curr->nodes; t != NULL; t = t->next) {
         switch (t->kind) {
-        case IR_LABEL: fprintf(ir->file, "@%s\n", t->name); break;
-        case IR_OPERATION: dump_op(ir->file, t); break;
-        case IR_EXTRN: fprintf(ir->file, "  extrn %s\n", t->name); break;
-        case IR_JUMP: fprintf(ir->file, "  jmp @%s\n", t->name); break;
+        case IR_LABEL: fprintf(f, "@%s\n", t->name); break;
+        case IR_OPERATION: dump_op(f, t); break;
+        case IR_EXTRN: fprintf(f, "  extrn %s\n", t->name); break;
+        case IR_JUMP: fprintf(f, "  jmp @%s\n", t->name); break;
         case IR_RETURN:
           if (t->temp_dest) {
-            fprintf(ir->file, "  ret %%t%zu\n", t->temp_dest);
+            fprintf(f, "  ret %%t%zu\n", t->temp_dest);
           } else {
-            fprintf(ir->file, "  ret\n");
+            fprintf(f, "  ret\n");
           }
           break;
         case IR_MODULE:
@@ -400,7 +407,7 @@ void dump_ir(Ir *ir) {
         case IR_BRANCH: break;
         }
       }
-      fprintf(ir->file, "}\n");
+      fprintf(f, "}\n");
       break;
     }
 

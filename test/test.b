@@ -1,4 +1,7 @@
 main() {
-  auto a, b;
-  return 34 + 17 * 2;
+  auto a, b, c;
+  b = 69;
+  a = &b;
+  c = *a;
+  return c;
 }
