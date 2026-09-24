@@ -43,6 +43,7 @@ typedef struct {
 typedef struct {
   const char *name;
   AstNode *args;
+  size_t argc;
 } AstFunctionCall;
 
 typedef struct {
@@ -69,7 +70,6 @@ typedef enum {
   AST_SCOPE,
   AST_FUNCTION,
   AST_FUNCTION_CALL,
-  AST_FUNCTION_ARGS,
   AST_EXTRN,
   AST_AUTO,
   AST_IF,
@@ -124,7 +124,8 @@ AstBinary *new_ast_binary(Arena *arena, AstNode *left, TokenKind op, AstNode *ri
 AstScope *new_ast_scope(Arena *arena, Hs *symtab, AstScope *parent, AstNode *body);
 AstFunction *new_ast_function(Arena *arena, const char *name, Hs *params_tab, size_t params,
                               AstNode *body);
-AstFunctionCall *new_ast_function_call(Arena *arena, const char *name, AstNode *args);
+AstFunctionCall *new_ast_function_call(Arena *arena, const char *name, AstNode *args,
+                                       size_t argc);
 AstIf *new_ast_conditional(Arena *arena, AstNode *Condition, AstNode *body, AstNode *chain);
 AstGlobal *new_ast_global(Arena *arena, const char *name, size_t size);
 

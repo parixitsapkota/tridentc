@@ -55,13 +55,12 @@ struct IrNode {
   IrKind kind;
 
   const char *name;
-  // const char *val;
+  size_t *args;
+  size_t params;
+
   size_t lable_id;
   size_t lable_id_f;
-  union {
-    size_t params;
-    size_t temp_dest;
-  };
+  size_t temp_dest;
   irop_t op;
   size_t temp_1;
   size_t temp_2;
@@ -82,8 +81,8 @@ typedef struct {
   // Nodes ptrs
   IrNode *ir_head;
   IrNode *ir_tail;
-  IrNode *t_ir_tail;
   Arena *ir_arena;
+  Arena *args_arena;
   // Helper/Temp vars
   AstNode *t_node;
 } Ir;

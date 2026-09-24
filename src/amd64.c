@@ -3,6 +3,10 @@
 
 #include "ir.h"
 
+// System V AMD64 integer argument registers.
+static const char *ARG_REGS[] = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"};
+#define N_ARG_REGS 6
+
 static void ld(FILE *f, const char *reg, size_t t) {
   fprintf(f, "  mov %s, [rbp - %zu]\n", reg, t * 8);
 }
@@ -10,7 +14,6 @@ static void ld(FILE *f, const char *reg, size_t t) {
 static void st(FILE *f, size_t t, const char *reg) {
   fprintf(f, "  mov [rbp - %zu], %s\n", t * 8, reg);
 }
-static void asm_op(FILE *f, const IrNode *n, size_t *alloc_i, size_t max_t, size_t n_alloc);
 
 static const char *setcc_for(irop_t op) {
   switch (op) {
@@ -117,16 +120,42 @@ static void asm_op(FILE *f, const IrNode *n, size_t *alloc_i, size_t max_t, size
   }
 }
 
+static void asm_call(FILE *f, const IrNode *n) {
+  size_t argc = n->params;
+  size_t stack_args = argc > N_ARG_REGS ? argc - N_ARG_REGS : 0;
+  size_t pad = stack_args % 2;
+
+  if (pad) {
+    fprintf(f, "  sub rsp, 8\n");
+  }
+
+  for (size_t i = argc; i > N_ARG_REGS; --i) {
+    ld(f, "rax", n->args[i - 1]);
+    fprintf(f, "  push rax\n");
+  }
+  for (size_t i = 0; i < argc && i < N_ARG_REGS; ++i) {
+    ld(f, ARG_REGS[i], n->args[i]);
+  }
+
+  fprintf(f, "  xor eax, eax\n");
+  fprintf(f, "  call %s\n", n->name);
+
+  if (stack_args + pad) {
+    fprintf(f, "  add rsp, %zu\n", (stack_args + pad) * 8);
+  }
+  st(f, n->temp_dest, "rax");
+}
+
 static void asm_function(FILE *f, const IrNode *fn) {
-  size_t max_t = 0, n_alloc = 0;
+  size_t max_t = fn->params, n_alloc = 0;
   for (const IrNode *t = fn->nodes; t; t = t->next) {
-    if (t->kind != IR_OPERATION) {
+    if (t->kind != IR_OPERATION && t->kind != IR_CALL) {
       continue;
     }
     if (t->temp_dest > max_t) {
       max_t = t->temp_dest;
     }
-    if (t->op == OP_ALLOC) {
+    if (t->kind == IR_OPERATION && t->op == OP_ALLOC) {
       n_alloc++;
     }
   }
@@ -138,6 +167,15 @@ static void asm_function(FILE *f, const IrNode *fn) {
   fprintf(f, "  push rbp\n  mov rbp, rsp\n");
   if (frame) {
     fprintf(f, "  sub rsp, %zu\n", frame);
+  }
+
+  for (size_t i = 0; i < fn->params; ++i) {
+    if (i < N_ARG_REGS) {
+      st(f, i + 1, ARG_REGS[i]);
+    } else {
+      fprintf(f, "  mov rax, [rbp + %zu]\n", 16 + (i - N_ARG_REGS) * 8);
+      st(f, i + 1, "rax");
+    }
   }
 
   size_t alloc_i = 0;
@@ -153,6 +191,7 @@ static void asm_function(FILE *f, const IrNode *fn) {
       fprintf(f, "  jnz .L%zu\n", t->lable_id);
       fprintf(f, "  jmp .L%zu\n", t->lable_id_f);
       break;
+    case IR_CALL: asm_call(f, t); break;
     case IR_RETURN:
       if (t->temp_dest) {
         ld(f, "rax", t->temp_dest);
@@ -161,7 +200,7 @@ static void asm_function(FILE *f, const IrNode *fn) {
       }
       fprintf(f, "  leave\n  ret\n");
       break;
-    default: break; // IR_CALL / IR_BRANCH not parsed yet.
+    default: break;
     }
   }
   fputc('\n', f);
@@ -183,7 +222,7 @@ void dump_x86_64_nasm(Ir *ir, FILE *f) {
           "  call main\n"
           "  mov rdi, rax\n"
           "  mov rax, 0x3C\n"
-          "  syscall\n");
+          "  syscall\n\n");
 
   fprintf(f, "section .note.GNU-stack noalloc noexec nowrite progbits\n");
 }

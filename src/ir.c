@@ -28,6 +28,7 @@ Ir *init_ir(Parser *p, const char *file_path) {
   ir->p = p;
   ir->module = p->l->file;
   ir->ir_arena = init_arena(1024 * sizeof(IrNode));
+  ir->args_arena = init_arena(1024 * sizeof(size_t));
 
   ir->file = fopen(file_path, "w");
   if (!ir->file) {
@@ -111,7 +112,15 @@ void add_ir_node(IrNode **t_node, IrNode *node) {
   *t_node = node;
 }
 
-size_t emit_const(Ir *ir, IrNode **tail, long long value) {
+size_t emmit_call(Ir *ir, IrNode **tail, const char *name, size_t *args, size_t params) {
+  size_t t = ++ir->temp_c;
+  IrNode *node = arena_alloc(ir->ir_arena, sizeof(IrNode));
+  *node = (IrNode){.kind = IR_CALL, .temp_dest = t, .name = name, .args = args, .params = params};
+  add_ir_node(tail, node);
+  return t;
+}
+
+size_t emit_const(Ir *ir, IrNode **tail, size_t value) {
   size_t t = ++ir->temp_c;
   IrNode *n = new_ir_op(ir->ir_arena, t, OP_CONST, 0, 0);
   n->imm = value;
@@ -282,6 +291,19 @@ size_t ir_expr_f(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
     return emit_op(ir, block_tail, irop, a, b);
   }
 
+  case AST_FUNCTION_CALL: {
+    AstNode *arg = node->function_call_n->args;
+    size_t argc = node->function_call_n->argc;
+    const char *name = node->function_call_n->name;
+    size_t *args = arena_alloc(ir->args_arena, argc * sizeof(size_t));
+
+    for (size_t i = 0; i < argc; ++i) {
+      args[i] = ir_expr_f(ir, arg, scope, block_tail);
+      arg = arg->next;
+    }
+    return emmit_call(ir, block_tail, name, args, argc);
+  }
+
   default: ir_fatal("Unhandled node kind (%d) in ir_expr_f", (int)node->kind);
   }
 }
@@ -292,6 +314,10 @@ void ir_auto_s(Ir *ir, AstNode *curr, AstScope *scope, IrNode **block_tail) {
     ir_fatal("Symbol '%s' not found in scope", curr->name_s);
   }
   info->temp_dest = emit_op(ir, block_tail, OP_ALLOC, 0, 0);
+}
+
+void ir_extrn_s(Ir *ir, AstNode *curr) {
+  add_ir_node(&ir->ir_tail, new_ir_named(ir->ir_arena, IR_EXTRN, curr->name_s, 0));
 }
 
 void ir_return_s(Ir *ir, AstNode *curr, AstScope *scope, IrNode **block_tail) {
@@ -356,22 +382,23 @@ void ir_if_s(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
 }
 
 void ir_while_s(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
-  size_t label_id = ++(ir->lable_c);
+  size_t cond_label = ++(ir->lable_c);
+  size_t body_label = ++(ir->lable_c);
+  size_t exit_label = ++(ir->lable_c);
 
-  add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_LABEL, label_id, 0, 0));
+  add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_LABEL, cond_label, 0, 0));
 
   size_t condition = ir_expr_f(ir, node->while_n->Condition, scope, block_tail);
   add_ir_node(block_tail,
-              new_ir_labled(ir->ir_arena, IR_BRANCH, label_id + 1, label_id + 2, condition));
-  add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_LABEL, label_id + 1, 0, 0));
+              new_ir_labled(ir->ir_arena, IR_BRANCH, body_label, exit_label, condition));
+  add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_LABEL, body_label, 0, 0));
 
   if (node->while_n->body && node->while_n->body->kind == AST_SCOPE) {
     ir_scope(ir, node->while_n->body, block_tail);
   }
 
-  add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_JUMP, label_id, 0, 0));
-  add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_LABEL, label_id + 2, 0, 0));
-  ir->lable_c += 2;
+  add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_JUMP, cond_label, 0, 0));
+  add_ir_node(block_tail, new_ir_labled(ir->ir_arena, IR_LABEL, exit_label, 0, 0));
 }
 
 void ir_statements(Ir *ir, AstNode *curr, AstScope *scope, IrNode **block_tail) {
@@ -380,7 +407,7 @@ void ir_statements(Ir *ir, AstNode *curr, AstScope *scope, IrNode **block_tail) 
   case AST_RETURN: ir_return_s(ir, curr, scope, block_tail); break;
   case AST_SCOPE: ir_scope(ir, curr, block_tail); break;
   case AST_AUTO: ir_auto_s(ir, curr, scope, block_tail); break;
-  case AST_EXTRN: add_ir_node(block_tail, new_ir_named(arena, IR_EXTRN, curr->name_s, 0)); break;
+  case AST_EXTRN: ir_extrn_s(ir, curr); break;
   case AST_EXPR: ir_expr_f(ir, curr->node, scope, block_tail); break;
   case AST_IF: ir_if_s(ir, curr, curr->if_n->body->scope_n->parent, block_tail); break;
   case AST_WHILE: ir_while_s(ir, curr, curr->while_n->body->scope_n->parent, block_tail); break;
@@ -397,12 +424,19 @@ IrNode *ir_function_s(Ir *ir, AstNode *func) {
   size_t params = func->function_n->params;
   AstNode *body_scope = func->function_n->body;
 
-  ir->temp_c = 0;
+  ir->temp_c = params;
+  ir->lable_c = 0;
 
   size_t entry_label = ++(ir->lable_c);
   IrNode *entry = arena_alloc(ir->ir_arena, sizeof(IrNode));
   *entry = (IrNode){.kind = IR_LABEL, .lable_id = entry_label};
   IrNode *block_tail = entry;
+
+  for (size_t i = 1; i <= params; ++i) {
+    size_t slot = emit_op(ir, &block_tail, OP_ALLOC, 0, 0);
+    emit_store(ir, &block_tail, i, slot);
+    add_ir_node(&block_tail, new_ir_op(ir->ir_arena, i, OP_ADDRESS, slot, 0));
+  }
 
   ir_scope(ir, body_scope, &block_tail);
 
@@ -452,10 +486,20 @@ void dump_op(FILE *f, const IrNode *n) {
 void dump_ir(Ir *ir, FILE *f) {
   for (IrNode *curr = ir->ir_head; curr != NULL; curr = curr->next) {
     switch (curr->kind) {
-    case IR_MODULE: fprintf(f, "module \"%s\"\n\n", curr->name); break;
+    case IR_MODULE: fprintf(f, "def module \"%s\"\n\n", curr->name); break;
+    case IR_EXTRN: fprintf(f, "extern \"%s\"\n\n", curr->name); break;
 
     case IR_FUNCTION: {
-      fprintf(f, "func $%s() %zu {\n", curr->name, curr->params);
+
+      fprintf(f, "func $%s(", curr->name);
+      for (size_t i = 1; i <= curr->params; ++i) {
+        fprintf(f, "%%t%zu", i);
+        if (i != curr->params) {
+          fprintf(f, ", ");
+        }
+      }
+      fprintf(f, ") %zu {\n", curr->params);
+
       for (IrNode *t = curr->nodes; t != NULL; t = t->next) {
         switch (t->kind) {
         case IR_LABEL: fprintf(f, "@L%zu:\n", t->lable_id); break;
@@ -465,6 +509,16 @@ void dump_ir(Ir *ir, FILE *f) {
         case IR_BRANCH:
           fprintf(f, "  br %%t%zu, .L%zu, .L%zu\n", t->temp_dest, t->lable_id, t->lable_id_f);
           break;
+        case IR_CALL:
+          fprintf(f, "  %%t%zu = call %zu, $%s(", t->temp_dest, t->params, t->name);
+          for (size_t i = 0; i < t->params; ++i) {
+            fprintf(f, "%%t%zu", t->args[i]);
+            if (i + 1 != t->params) {
+              fprintf(f, ", ");
+            }
+          }
+          fprintf(f, ")\n");
+          break;
         case IR_RETURN:
           if (t->temp_dest) {
             fprintf(f, "  ret %%t%zu\n", t->temp_dest);
@@ -473,11 +527,10 @@ void dump_ir(Ir *ir, FILE *f) {
           }
           break;
         case IR_MODULE:
-        case IR_FUNCTION:
-        case IR_CALL: break;
+        case IR_FUNCTION: break;
         }
       }
-      fprintf(f, "}\n");
+      fprintf(f, "}\n\n");
       break;
     }
 
@@ -491,5 +544,6 @@ void free_ir(Ir *ir) {
     fclose(ir->file);
   }
   free_arena(ir->ir_arena);
+  free_arena(ir->args_arena);
   free(ir);
 }

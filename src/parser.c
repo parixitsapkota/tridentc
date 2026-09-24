@@ -272,10 +272,11 @@ AstNode *parse_function_s(Parser *p, const char *name) {
     const char *parm_name = p->tok->lexeme;
     pconsume(p);
 
+    ++params;
     VarInfo *info = var_info(p->var_info, PARAM_VAR, stack_offset);
+    *info = (VarInfo){.temp_dest = params};
     put_to_hash_set(symtable, parm_name, info);
     ++stack_offset;
-    ++params;
 
     if (is_kind(p, COMMA)) {
       pconsume(p);

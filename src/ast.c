@@ -40,9 +40,10 @@ AstFunction *new_ast_function(Arena *arena, const char *name, Hs *params_tab, si
   return function;
 }
 
-AstFunctionCall *new_ast_function_call(Arena *arena, const char *name, AstNode *args) {
+AstFunctionCall *new_ast_function_call(Arena *arena, const char *name, AstNode *args,
+                                       size_t argc) {
   AstFunctionCall *function_call = arena_alloc(arena, sizeof(AstFunctionCall));
-  *function_call = (AstFunctionCall){.name = name, .args = args};
+  *function_call = (AstFunctionCall){.name = name, .args = args, .argc = argc};
   return function_call;
 }
 
