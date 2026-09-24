@@ -4,17 +4,17 @@
 trident \- compiler for the B programming language targeting amd64 assembly
 .SH SYNOPSIS
 .B trident
-[\fB\-h\fR|\fB\-\-help\fR]
-[\fB\-v\fR|\fB\-\-version\fR]
+[\fB\-h\fR|\fB\-help\fR]
+[\fB\-v\fR|\fB\-version\fR]
 .BR \-i " \fIinput_file\fR"
 [\fB\-o\fR " \fIoutput_file\fR"]
-[\fB\-r\fR|\fB\-\-add\-brt\fR]
+[\fB\-t\fR " \fItarget\fR"]
 .SH DESCRIPTION
 .B Trident
-is a compiler for the \fBB programming language\fR, targeting \fBamd64\fR assembly output.
+is a compiler for the \fBB programming language\fR, targeting \fBamd64\fR assembly output by default.
 \fBB\fR is a typeless systems programming language originally developed by Ken Thompson and Dennis Ritchie at Bell Labs, serving as the direct predecessor to C.
 .PP
-The compiler pipeline reads input B source code, lexes and parses the AST, and outputs assembly targeting nasm x86_64.
+The compiler pipeline reads input B source code, lexes and parses the AST, generates intermediate representation (IR), and outputs assembly based on the specified target (e.g., nasm x86_64).
 .SH OPTIONS
 .TP
 .BR \-h ", " \-help
@@ -29,8 +29,8 @@ Specify the input B source file path (e.g., \fIfile.b\fR). This option is requir
 .BI \-o " file" ", " \-output " file"
 Specify the output assembly file path. Defaults to \fBout.asm\fR if unspecified.
 .TP
-.BR \-r ", " \-add\-brt
-Compile and link with the B runtime environment (\fBb-runtime\fR).
+.BI \-t " target" ", " \-target " target"
+Specify the output target backend. Defaults to \fBx86_64_nasm\fR if unspecified.
 .SH ENVIRONMENT & COMPLIANCE
 .B Trident
 is primarily designed and supported on \fBLinux\fR. Support for other platforms (e.g., Windows via \fBw64-mingw32\fR) is experimental.
@@ -40,16 +40,16 @@ is primarily designed and supported on \fBLinux\fR. Support for other platforms 
 Successful compilation or clean exit after displaying version or help information.
 .TP
 .B 1
-An error occurred during execution (e.g., missing input file, invalid options, missing target file).
+An error occurred during execution (e.g., missing input file, invalid options, failing to open files).
 .SH EXAMPLES
 .PP
 Compile a B program \fBmain.b\fR to the default output file (\fBout.asm\fR):
 .IP
 .B trident -i main.b
 .PP
-Compile \fBexample.b\fR with B-runtime support into custom assembly output \fBbuild/example.s\fR:
+Compile \fBexample.b\fR with a specific target into custom assembly output \fBbuild/example.s\fR:
 .IP
-.B trident -i example.b -o build/example.s -r
+.B trident -i example.b -o build/example.s -t x86_64_nasm
 .PP
 Assemble and run using the project \fBMakefile\fR:
 .IP
