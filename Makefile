@@ -31,12 +31,15 @@ else
 endif
 
 # --- Information ---
-VERSION       := 0.0.1 $(MODE)-$(shell date "+%d%m%Y")
+GIT_TAG       := $(shell git describe --tags --abbrev=0 2>/dev/null || echo "0.0.1")
+GIT_HASH      := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+VERSION       := $(GIT_TAG) $(MODE)-$(shell date "+%d%m%Y")-$(GIT_HASH)
 TIME_INFO     := $(shell date "+%Y/%m/%d %H:%M:%S:%p")
 COMPILER_INFO := $(shell $(CC) --version | head -n 1 | cut -d' ' -f1-3)
 
-CFLAGS += -DVERSION_INFO="\"$(VERSION)\"" -DTIME_INFO="\"$(TIME_INFO)\""
-CFLAGS += -DCC_INFO="\"$(COMPILER_INFO)\""
+CFLAGS += -DVERSION_INFO="\"$(VERSION)\"" \
+          -DTIME_INFO="\"$(TIME_INFO)\"" \
+          -DCC_INFO="\"$(COMPILER_INFO)\""
 
 # --- Platform ---
 PLATFORM ?= linux
@@ -142,6 +145,11 @@ install: clean all
 uninstall:
 	@rm -f $(MANPREFIX)/man1/$(OUTPUT).1
 	@rm -f $(PREFIX)/bin/$(OUTPUT)
+
+info:
+	@echo $(PROJECT) $(VERSION)
+	@echo "Compiler : $(COMPILER_INFO)"
+	@echo "Built    : $(TIME_INFO)"
 
 EXAMPLE ?= $(wildcard examples/*.b)
 

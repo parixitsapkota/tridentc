@@ -42,9 +42,9 @@ int main(int argc, char *argv[]) {
   }
 
   if (*version) {
-    fprintf(stderr, BOLD "Trident " VERSION_INFO RESET "\n");
-    fprintf(stderr, DIM "Compiler:   " RESET CC_INFO "\n");
-    fprintf(stderr, DIM "Build Time: " RESET TIME_INFO "\n");
+    fprintf(stdout, BOLD FG_BLUE "Trident " RESET VERSION_INFO "\n");
+    fprintf(stdout, DIM BOLD "Compiler : " RESET CC_INFO "\n");
+    fprintf(stdout, DIM BOLD "Built    : " RESET TIME_INFO "\n");
     return 0;
   }
 
