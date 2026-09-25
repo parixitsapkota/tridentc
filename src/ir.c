@@ -45,7 +45,10 @@ bool is_mem_op(irop_t op) {
   switch (op) {
   case OP_ALLOC:
   case OP_LOAD:
-  case OP_STORE: return true;
+  case OP_STORE:
+  case OP_GLOBAL_L:
+  case OP_GLOBAL_S:
+  case OP_GLOBAL_ADDR: return true;
 
   default: return false;
   }
@@ -77,6 +80,9 @@ const char *irop_to_str(irop_t op) {
   case OP_STORE: return "store";
 
   case OP_CONST: return "const";
+  case OP_GLOBAL_L: return "load";
+  case OP_GLOBAL_S: return "store";
+  case OP_GLOBAL_ADDR: return "gaddr";
 
   default: return "?OP?";
   }
@@ -124,6 +130,28 @@ size_t emit_const(Ir *ir, IrNode **tail, size_t value) {
   size_t t = ++ir->temp_c;
   IrNode *n = new_ir_op(ir->ir_arena, t, OP_CONST, 0, 0);
   n->imm = value;
+  add_ir_node(tail, n);
+  return t;
+}
+
+size_t load_global(Ir *ir, IrNode **tail, const char *name) {
+  size_t t = ++ir->temp_c;
+  IrNode *n = new_ir_op(ir->ir_arena, t, OP_GLOBAL_L, 0, 0);
+  n->name = name;
+  add_ir_node(tail, n);
+  return t;
+}
+
+void store_global(Ir *ir, IrNode **tail, const char *name, size_t value) {
+  IrNode *n = new_ir_op(ir->ir_arena, 0, OP_GLOBAL_S, 0, value);
+  n->name = name;
+  add_ir_node(tail, n);
+}
+
+size_t emit_global_addr(Ir *ir, IrNode **tail, const char *name) {
+  size_t t = ++ir->temp_c;
+  IrNode *n = new_ir_op(ir->ir_arena, t, OP_GLOBAL_ADDR, 0, 0);
+  n->name = name;
   add_ir_node(tail, n);
   return t;
 }
@@ -178,9 +206,17 @@ irop_t binop_to_irop(int tok) {
   }
 }
 
+typedef enum { LV_LOCAL, LV_GLOBAL } LvKind;
+
+typedef struct {
+  LvKind kind;
+  size_t addr_temp;
+  const char *name;
+} LValue;
+
 size_t ir_expr_f(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail);
 
-size_t ir_lvalue(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
+LValue ir_lvalue(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
   if (!node) {
     ir_fatal("Missing lvalue");
   }
@@ -192,16 +228,41 @@ size_t ir_lvalue(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
       if (var->temp_dest == 0) {
         ir_fatal("Variable '%s' has no storage slot yet", name);
       }
-      return var->temp_dest;
+      return (LValue){.kind = LV_LOCAL, .addr_temp = var->temp_dest};
+    } else if (var->kind == GLOBAL_VAR) {
+      return (LValue){.kind = LV_GLOBAL, .name = name};
     }
-    ir_fatal("Global variable '%s': not supported by the IR yet", name);
+    ir_fatal("Unsupported variable kind for '%s'", name);
   }
 
   if (node->kind == AST_UNARY && node->unary_n->op == MUL) {
-    return ir_expr_f(ir, node->unary_n->node, scope, block_tail);
+    size_t addr = ir_expr_f(ir, node->unary_n->node, scope, block_tail);
+    return (LValue){.kind = LV_LOCAL, .addr_temp = addr};
   }
 
   ir_fatal("Expression is not an lvalue");
+}
+
+size_t ir_load_lvalue(Ir *ir, IrNode **block_tail, LValue lv) {
+  if (lv.kind == LV_GLOBAL) {
+    return load_global(ir, block_tail, lv.name);
+  }
+  return emit_op(ir, block_tail, OP_LOAD, lv.addr_temp, 0);
+}
+
+void ir_store_lvalue(Ir *ir, IrNode **block_tail, size_t value, LValue lv) {
+  if (lv.kind == LV_GLOBAL) {
+    store_global(ir, block_tail, lv.name, value);
+  } else {
+    emit_store(ir, block_tail, value, lv.addr_temp);
+  }
+}
+
+size_t ir_addr_of_lvalue(Ir *ir, IrNode **block_tail, LValue lv) {
+  if (lv.kind == LV_GLOBAL) {
+    return emit_global_addr(ir, block_tail, lv.name);
+  }
+  return emit_op(ir, block_tail, OP_ADDRESS, lv.addr_temp, 0);
 }
 
 size_t ir_expr_f(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
@@ -222,8 +283,10 @@ size_t ir_expr_f(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
           ir_fatal("Variable '%s' has no storage slot yet", name);
         }
         return emit_op(ir, block_tail, OP_LOAD, var->temp_dest, 0);
+      } else if (var->kind == GLOBAL_VAR) {
+        return load_global(ir, block_tail, name);
       }
-      ir_fatal("Global variable '%s': not supported by the IR yet", name);
+      ir_fatal("Undefined variable '%s'", name);
     }
 
     default:
@@ -238,8 +301,8 @@ size_t ir_expr_f(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
 
     switch (op) {
     case BIT_AND: {
-      size_t addr = ir_lvalue(ir, operand, scope, block_tail);
-      return emit_op(ir, block_tail, OP_ADDRESS, addr, 0);
+      LValue lv = ir_lvalue(ir, operand, scope, block_tail);
+      return ir_addr_of_lvalue(ir, block_tail, lv);
     }
 
     case MUL: {
@@ -260,11 +323,11 @@ size_t ir_expr_f(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
 
     case INC:
     case DEC: {
-      size_t addr = ir_lvalue(ir, operand, scope, block_tail);
-      size_t old = emit_op(ir, block_tail, OP_LOAD, addr, 0);
+      LValue lv = ir_lvalue(ir, operand, scope, block_tail);
+      size_t old = ir_load_lvalue(ir, block_tail, lv);
       size_t one = emit_const(ir, block_tail, 1);
       size_t nv = emit_op(ir, block_tail, op == INC ? OP_ADD : OP_SUB, old, one);
-      emit_store(ir, block_tail, nv, addr);
+      ir_store_lvalue(ir, block_tail, nv, lv);
       return nv;
     }
 
@@ -277,8 +340,8 @@ size_t ir_expr_f(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
 
     if (op == ASSIGN) {
       size_t val = ir_expr_f(ir, node->binary_n->right, scope, block_tail);
-      size_t addr = ir_lvalue(ir, node->binary_n->left, scope, block_tail);
-      emit_store(ir, block_tail, val, addr);
+      LValue lv = ir_lvalue(ir, node->binary_n->left, scope, block_tail);
+      ir_store_lvalue(ir, block_tail, val, lv);
       return val;
     }
 
@@ -486,6 +549,9 @@ void gen_ir(Ir *ir) {
     if (curr->kind == AST_FUNCTION) {
       ir->t_node = curr;
       add_ir_node(&ir->ir_tail, ir_function_s(ir, curr));
+    } else if (curr->kind == AST_GLOBAL) {
+      ir->t_node = curr;
+      add_ir_node(&ir->ir_tail, new_ir_named(ir->ir_arena, IR_GLOBAL, curr->global_n->name, 0));
     }
     curr = curr->next;
   }
@@ -494,14 +560,17 @@ void gen_ir(Ir *ir) {
 void dump_op(FILE *f, const IrNode *n) {
   const char *op = irop_to_str(n->op);
   switch (n->op) {
-  case OP_CONST: fprintf(f, "  %%t%zu = %s %zu\n", n->temp_dest, op, n->imm); break;
-  case OP_ALLOC: fprintf(f, "  %%t%zu = %s\n", n->temp_dest, op); break;
+  case OP_CONST: fprintf(f, "  %%t%zu = &%s %zu\n", n->temp_dest, op, n->imm); break;
+  case OP_GLOBAL_L:
+  case OP_GLOBAL_ADDR: fprintf(f, "  %%t%zu = &%s %s\n", n->temp_dest, op, n->name); break;
+  case OP_GLOBAL_S: fprintf(f, "  &%s %s, %%t%zu\n", op, n->name, n->temp_2); break;
+  case OP_ALLOC: fprintf(f, "  %%t%zu = &%s\n", n->temp_dest, op); break;
   case OP_LOAD:
   case OP_ADDRESS:
-  case OP_NEG: fprintf(f, "  %%t%zu = %s %%t%zu\n", n->temp_dest, op, n->temp_1); break;
-  case OP_STORE: fprintf(f, "  %s %%t%zu, %%t%zu\n", op, n->temp_1, n->temp_2); break;
+  case OP_NEG: fprintf(f, "  %%t%zu = &%s %%t%zu\n", n->temp_dest, op, n->temp_1); break;
+  case OP_STORE: fprintf(f, "  &%s %%t%zu, %%t%zu\n", op, n->temp_1, n->temp_2); break;
   default:
-    fprintf(f, "  %%t%zu = %s %%t%zu, %%t%zu\n", n->temp_dest, op, n->temp_1, n->temp_2);
+    fprintf(f, "  %%t%zu = &%s %%t%zu, %%t%zu\n", n->temp_dest, op, n->temp_1, n->temp_2);
     break;
   }
 }
@@ -510,6 +579,7 @@ void dump_ir(Ir *ir, FILE *f) {
   for (IrNode *curr = ir->ir_head; curr != NULL; curr = curr->next) {
     switch (curr->kind) {
     case IR_MODULE: fprintf(f, "def module \"%s\"\n\n", curr->name); break;
+    case IR_GLOBAL: fprintf(f, "static %s\n\n", curr->name); break;
     case IR_EXTRN: fprintf(f, "extern \"%s\"\n\n", curr->name); break;
 
     case IR_FUNCTION: {
@@ -550,13 +620,13 @@ void dump_ir(Ir *ir, FILE *f) {
           }
           break;
         case IR_MODULE:
+        case IR_GLOBAL:
         case IR_FUNCTION: break;
         }
       }
-      fprintf(f, "}\n\n");
+      fprintf(f, "}\n");
       break;
     }
-
     default: break;
     }
   }

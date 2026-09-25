@@ -37,14 +37,18 @@ typedef enum {
   OP_STORE,
   // Constant immediate
   OP_CONST,
+  OP_GLOBAL_L,
+  OP_GLOBAL_S,
+  OP_GLOBAL_ADDR,
 } irop_t;
 
 typedef enum {
   IR_MODULE,
+  IR_GLOBAL,
+  IR_EXTRN,
   IR_FUNCTION,
   IR_LABEL,
   IR_OPERATION,
-  IR_EXTRN,
   IR_JUMP,
   IR_BRANCH,
   IR_CALL,

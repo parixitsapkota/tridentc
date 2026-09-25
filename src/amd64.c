@@ -1,3 +1,4 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -27,7 +28,7 @@ static const char *setcc_for(irop_t op) {
   }
 }
 
-static void asm_op(FILE *f, const IrNode *n, size_t *alloc_i, size_t max_t, size_t n_alloc) {
+static void asm_op(FILE *f, const IrNode *n, size_t *alloc_i, size_t max_t) {
   size_t d = n->temp_dest, a = n->temp_1, b = n->temp_2;
 
   switch (n->op) {
@@ -37,7 +38,7 @@ static void asm_op(FILE *f, const IrNode *n, size_t *alloc_i, size_t max_t, size
     break;
 
   case OP_ALLOC:
-    fprintf(f, "  lea rax, [rbp - %zu]\n", (max_t + n_alloc - (*alloc_i)++) * 8);
+    fprintf(f, "  lea rax, [rbp - %zu]\n", (max_t + (*alloc_i)++) * 8);
     st(f, d, "rax");
     break;
 
@@ -56,6 +57,21 @@ static void asm_op(FILE *f, const IrNode *n, size_t *alloc_i, size_t max_t, size
     ld(f, "rax", b);
     ld(f, "rcx", a);
     fprintf(f, "  mov [rcx], rax\n");
+    break;
+
+  case OP_GLOBAL_L:
+    fprintf(f, "  mov rax, [rel var_%s]\n", n->name);
+    st(f, d, "rax");
+    break;
+
+  case OP_GLOBAL_S:
+    ld(f, "rax", b);
+    fprintf(f, "  mov [rel var_%s], rax\n", n->name);
+    break;
+
+  case OP_GLOBAL_ADDR:
+    fprintf(f, "  lea rax, [rel var_%s]\n", n->name);
+    st(f, d, "rax");
     break;
 
   case OP_NEG:
@@ -123,7 +139,7 @@ static void asm_op(FILE *f, const IrNode *n, size_t *alloc_i, size_t max_t, size
 static void asm_call(FILE *f, const IrNode *n) {
   size_t argc = n->params;
   size_t stack_args = argc > N_ARG_REGS ? argc - N_ARG_REGS : 0;
-  size_t pad = stack_args % 2;
+  size_t pad = (stack_args % 2 != 0) ? 1 : 0;
 
   if (pad) {
     fprintf(f, "  sub rsp, 8\n");
@@ -160,7 +176,8 @@ static void asm_function(FILE *f, const IrNode *fn) {
     }
   }
 
-  size_t frame = (max_t + n_alloc) * 8;
+  size_t total_slots = max_t + n_alloc;
+  size_t frame = total_slots * 8;
   frame = (frame + 15) & ~(size_t)15; // To keep rsp 16-byte aligned
 
   fprintf(f, "global %s\n%s:\n", fn->name, fn->name);
@@ -178,11 +195,11 @@ static void asm_function(FILE *f, const IrNode *fn) {
     }
   }
 
-  size_t alloc_i = 0;
+  size_t alloc_i = 1;
   for (const IrNode *t = fn->nodes; t; t = t->next) {
     switch (t->kind) {
     case IR_LABEL: fprintf(f, ".L%zu:\n", t->lable_id); break;
-    case IR_OPERATION: asm_op(f, t, &alloc_i, max_t, n_alloc); break;
+    case IR_OPERATION: asm_op(f, t, &alloc_i, max_t); break;
     case IR_EXTRN: fprintf(f, "  extern %s\n", t->name); break;
     case IR_JUMP: fprintf(f, "  jmp .L%zu\n", t->lable_id); break;
     case IR_BRANCH:
@@ -208,8 +225,24 @@ static void asm_function(FILE *f, const IrNode *fn) {
 
 void dump_x86_64_nasm(Ir *ir, FILE *f) {
   fprintf(f, "; generated from %s\n", ir->module);
-  fprintf(f, "default rel\nsection .text\n\n");
+  fprintf(f, "default rel\n\n");
 
+  bool have_globals = false;
+  for (const IrNode *curr = ir->ir_head; curr; curr = curr->next) {
+    if (curr->kind == IR_GLOBAL) {
+      if (!have_globals) {
+        fprintf(f, "section .bss\n");
+        have_globals = true;
+      }
+      size_t count = curr->temp_dest ? curr->temp_dest : 1;
+      fprintf(f, "global var_%s\nvar_%s: resq %zu\n", curr->name, curr->name, count);
+    }
+  }
+  if (have_globals) {
+    fputc('\n', f);
+  }
+
+  fprintf(f, "section .text\n\n");
   for (const IrNode *curr = ir->ir_head; curr; curr = curr->next) {
     if (curr->kind == IR_FUNCTION) {
       asm_function(f, curr);
