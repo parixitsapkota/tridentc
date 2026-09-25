@@ -98,6 +98,8 @@ typedef struct {
   size_t i;  // index
   size_t ln; // line number
   size_t cn; // colume number
+  // String storage.
+  Arena *str_arena;
   // Token List
   Arena *tokens;
   Token *tok_head;

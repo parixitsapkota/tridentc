@@ -16,10 +16,10 @@ Position position(size_t ln, size_t cn);
 // P_Print helper function
 char *token_kind_to_str(TokenKind kind);
 // Lexer core functions
-char *substr(const char *buffer, const size_t start, const size_t end);
+char *substr(Lexer *l, const char *buffer, const size_t start, const size_t end);
 char *get_word(Lexer *l);
 char *get_string_ident(Lexer *l);
-char *get_string(Lexer *l);
+char *get_string(Lexer *l, char q);
 char *get_digit(Lexer *l);
 
 Lexer *init_lexer(const char *file, const char *buffer, size_t buf_len) {
@@ -31,6 +31,7 @@ Lexer *init_lexer(const char *file, const char *buffer, size_t buf_len) {
   l->ln = 1;
   l->cn = 1;
   l->tokens = init_arena(sizeof(Token) * TOKENS_STORE);
+  l->str_arena = init_arena(sizeof(char) * (buf_len * 0.75));
   // Temp vars.
   l->t_token = NULL;
   l->tok_head = NULL;
@@ -67,7 +68,6 @@ void lexer(Lexer *l) {
       const struct Keyword *k = get_keyword_kind(word, word_len);
       if (k != NULL) {
         add_token(l, k->token_kind, NULL, position(l->ln, l->t_cn));
-        free(word);
       } else {
         add_token(l, IDENTIFIER, word, position(l->ln, l->t_cn));
       }
@@ -81,10 +81,17 @@ void lexer(Lexer *l) {
       continue;
     }
 
-    // Collect Strings
+    // Collect Str literal
     if (c == '"') {
-      char *str = get_string(l);
+      char *str = get_string(l, '"');
       add_token(l, STRING, str, position(l->ln, l->t_cn));
+      continue;
+    }
+
+    // Collect Char literal
+    if (c == '\'') {
+      char *str = get_string(l, '\'');
+      add_token(l, CHARACTER, str, position(l->ln, l->t_cn));
       continue;
     }
 
@@ -184,14 +191,8 @@ void lexer(Lexer *l) {
 }
 
 void free_lexer(Lexer *l) {
-  Token *tok = l->tok_head->next;
-  while (tok != NULL) {
-    if (tok->lexeme) {
-      free((char *)tok->lexeme);
-    }
-    tok = tok->next;
-  }
   free_arena(l->tokens);
+  free_arena(l->str_arena);
   free(l);
 }
 
@@ -214,9 +215,9 @@ void add_token(Lexer *l, TokenKind kind, const char *lexeme, Position position) 
 Position position(size_t ln, size_t cn) { return (Position){.ln = ln, .cn = cn}; }
 
 // Lexer core functions
-char *substr(const char *buffer, const size_t start, const size_t end) {
+char *substr(Lexer *l, const char *buffer, const size_t start, const size_t end) {
   const size_t length = end - start;
-  char *substr = malloc(length + 1);
+  char *substr = arena_alloc(l->str_arena, length + 1);
   strncpy(substr, buffer + start, length);
   substr[length] = '\0';
   return substr;
@@ -227,24 +228,66 @@ char *get_word(Lexer *l) {
   while (isalnum(peak(l, 0)) || peak(l, 0) == '_') {
     consume(l);
   }
-  return substr(l->buffer, start, l->i);
+  return substr(l, l->buffer, start, l->i);
 }
 
-char *get_string(Lexer *l) {
-  consume(l); // Skip first char.
+char *get_string(Lexer *l, char q) {
+  consume(l); // Consume opening " / '
   const size_t start = l->i;
 
-  while (peak(l, 0) != '"') {
-    if (peak(l, 0) == '\0' || peak(l, 0) == '\n') {
-      fprintf(stderr, "%s:%zu:%zu: Unterminated string.", l->file, l->ln, l->t_cn);
+  while (peak(l, 0) != q) {
+    char c = peak(l, 0);
+    if (c == '\0' || c == '\n') {
+      fprintf(stderr, "%s:%zu:%zu: Unterminated quoted constant literal.\n", l->file, l->ln,
+              l->t_cn);
       exit(EXIT_FAILURE);
+    }
+    if (c == '*') {
+      consume(l); // Consume prefix '*'
+      c = peak(l, 0);
+      if (c == '\0' || c == '\n') {
+        fprintf(stderr, "%s:%zu:%zu: Unterminated quoted constant after escape.\n", l->file,
+                l->ln, l->t_cn);
+        exit(EXIT_FAILURE);
+      }
     }
     consume(l);
   }
-  if (peak(l, 0) == '"') {
-    consume(l); // Skip last char.
+
+  consume(l); // Consume closing " / '
+
+  char *string = substr(l, l->buffer, start, l->i - 1);
+
+  size_t strlen = l->i - start;
+  if (q == '\'' && strlen >= 1) {
+    fprintf(stderr, "%s:%zu:%zu: Character constant too long.\n", l->file, l->ln, l->t_cn);
   }
-  return substr(l->buffer, start, l->i - 1);
+
+  size_t r = 0, w = 0;
+  while (r < strlen) {
+    if (string[r] == '*') {
+      r++;
+      switch (string[r]) {
+      case '0': string[w++] = '\0'; break;
+      case '(': string[w++] = '{'; break;
+      case ')': string[w++] = '}'; break;
+      case 't': string[w++] = '\t'; break;
+      case '"': string[w++] = '\"'; break;
+      case 'n': string[w++] = '\n'; break;
+      case '*': string[w++] = '*'; break;
+      case '\'': string[w++] = '\''; break;
+      default:
+        fprintf(stderr, "%s:%zu:%zu: Unknown escape sequence `*%c`\n", l->file, l->ln, l->t_cn,
+                string[r]);
+        exit(EXIT_FAILURE);
+      }
+    } else {
+      string[w++] = string[r];
+    }
+    r++;
+  }
+  string[w] = '\0';
+  return string;
 }
 
 char *get_digit(Lexer *l) {
@@ -252,7 +295,7 @@ char *get_digit(Lexer *l) {
   while (isdigit(peak(l, 0))) {
     consume(l);
   }
-  return substr(l->buffer, start, l->i);
+  return substr(l, l->buffer, start, l->i);
 }
 
 char *token_kind_to_str(TokenKind kind) {
