@@ -196,6 +196,7 @@ AstNode *parse_expr_s(Parser *p) {
 
 AstNode *parse_lable_s(Parser *p) {
   const char *lable_name = p->tok->lexeme;
+  put_to_hash_set(p->t_lable_tab, lable_name, var_info(p->var_info, LABLE_S, 0));
   pconsume(p);
   pconsume(p);
   AstNode *lable_n = arena_alloc(p->ast, sizeof(AstNode));
@@ -263,8 +264,10 @@ AstNode *parse_function_s(Parser *p, const char *name) {
   size_t stack_offset = 1, params = 0;
   AstNode *body_head = arena_alloc(p->ast, sizeof(AstNode));
   AstNode *body_tail = body_head;
-  Hs *symtable = init_hash_set(24);
+  Hs *symtable = init_hash_set(12);
   AstScope *params_tab_scope = new_ast_scope(p->ast, symtable, p->global_scope_n, NULL);
+  Hs *lable_table = init_hash_set(12);
+  p->t_lable_tab = lable_table;
 
   expect_and_consume(p, O_PREN);
 
@@ -272,10 +275,11 @@ AstNode *parse_function_s(Parser *p, const char *name) {
     const char *parm_name = p->tok->lexeme;
     pconsume(p);
 
+    ++params;
     VarInfo *info = var_info(p->var_info, PARAM_VAR, stack_offset);
+    *info = (VarInfo){.temp_dest = params};
     put_to_hash_set(symtable, parm_name, info);
     ++stack_offset;
-    ++params;
 
     if (is_kind(p, COMMA)) {
       pconsume(p);
@@ -286,8 +290,9 @@ AstNode *parse_function_s(Parser *p, const char *name) {
   add_node(&body_tail, parse_statements_f(p, params_tab_scope, symtable, &stack_offset, NULL));
 
   AstNode *function_n = arena_alloc(p->ast, sizeof(AstNode));
-  *function_n = (AstNode){AST_FUNCTION, .function_n = new_ast_function(p->ast, name, symtable,
-                                                                       params, body_head->next)};
+  *function_n =
+      (AstNode){AST_FUNCTION, .function_n = new_ast_function(p->ast, name, symtable, lable_table,
+                                                             params, body_head->next)};
 
   return function_n;
 }

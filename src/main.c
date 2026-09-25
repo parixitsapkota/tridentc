@@ -6,8 +6,9 @@
 #include "dep/shi_file.h"
 #include "dep/shi_flags.h"
 
-#include "cgen.h"
+#include "backend.h"
 #include "info.h"
+#include "ir.h"
 #include "lexer.h"
 #include "parser.h"
 
@@ -24,8 +25,8 @@ int main(int argc, char *argv[]) {
   char **output = shi_flag_str("-output", "out.asm", "output file name.");
   shi_flag_set_short(output, "o");
 
-  bool *_start = shi_flag_bool("-add-brt", false, "compile with b-runtime.");
-  shi_flag_set_short(_start, "r");
+  char **target = shi_flag_str("-target", "x86_64_nasm", "output x86_64_nasm to output file.");
+  shi_flag_set_short(target, "t");
 
   if (!shi_flag_parse(argc, argv)) {
     shi_flag_print_error(stderr);
@@ -71,17 +72,14 @@ int main(int argc, char *argv[]) {
   Parser *p = init_parser(l);
   parser(p);
 
-  Cgen *c = init_cgen(p, *output);
-
-  if (*_start) {
-    cgen(c, true);
-  } else {
-    cgen(c, false);
-  }
+  Ir *ir = init_ir(p, *output);
+  gen_ir(ir);
+  Targets target_kind = target_string_to_kind(*target);
+  gen_output(ir, target_kind, *output);
+  free_ir(ir);
 
   free_lexer(l);
   free_parser(p);
-  free_cgen(c);
   return 0;
 }
 

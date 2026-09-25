@@ -152,7 +152,7 @@ run:
 	@for file in $(EXAMPLE); do \
 		name=$$(basename "$$file" .b); \
 		printf "$(COLOR_MAGENTA)[+] Compiling $$file...$(COLOR_RESET)\n"; \
-		./$(OUTPUT) -i "$$file" -o "examples/$$name.asm" -r || exit 1; \
+		./$(OUTPUT) -i "$$file" -o "examples/$$name.asm" || exit 1; \
 		printf "$(COLOR_GREEN)[+] Assembling examples/$$name.asm...$(COLOR_RESET)\n"; \
 		nasm -f elf64 "examples/$$name.asm" -o "examples/$$name.o" || exit 1; \
 		printf "$(COLOR_YELLOW)[#] Linking examples/$$name.o...$(COLOR_RESET)\n"; \

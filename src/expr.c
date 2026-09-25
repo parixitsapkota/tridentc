@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -84,9 +85,11 @@ AstFunctionCall *parse_function_call_s(Parser *p) {
   AstNode *body_head = arena_alloc(p->ast, sizeof(AstNode));
   AstNode *body_tail = body_head;
 
+  size_t argc = 0;
   while (p->tok->kind != C_PREN) {
     AstNode *expr = parse_expr_f(p, PREC_NONE);
     add_node(&body_tail, expr);
+    ++argc;
 
     if (is_kind(p, COMMA)) {
       pconsume(p);
@@ -95,7 +98,7 @@ AstFunctionCall *parse_function_call_s(Parser *p) {
 
   expect_and_consume(p, C_PREN);
 
-  return new_ast_function_call(p->ast, name, body_head->next);
+  return new_ast_function_call(p->ast, name, body_head->next, argc);
 }
 
 AstNode *parse_left_f(Parser *p);

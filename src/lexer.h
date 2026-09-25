@@ -39,17 +39,13 @@ typedef enum {
   Q_MARK,    // `?`
 
   // Operator
-  NOT,    // `!`
-  COMMA,  // `,`
-  ADD,    // `+`
-  SUB,    // `-`
-  MUL,    // `*`
-  DEV,    // `/`
-  MOD,    // `%`
-  ASSIGN, // `=`
-
-  INC, // `++`
-  DEC, // `--`
+  COMMA, // `,`
+  NOT,   // `!`
+  ADD,   // `+`
+  SUB,   // `-`
+  MUL,   // `*`
+  DEV,   // `/`
+  MOD,   // `%`
 
   BIT_AND, // `&`
   BIT_OR,  // `|`
@@ -59,10 +55,15 @@ typedef enum {
 
   EQUAL,         // `==`
   NOT_EQUAL,     // `!=`
-  LESSER,        // `<`
   GREATER,       // `>`
-  LESSER_EQUAL,  // `<=`
   GREATER_EQUAL, // `>=`
+  LESSER,        // `<`
+  LESSER_EQUAL,  // `<=`
+
+  ASSIGN, // `=`
+
+  INC, // `++`
+  DEC, // `--`
 } TokenKind;
 
 typedef struct {
