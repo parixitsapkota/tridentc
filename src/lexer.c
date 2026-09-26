@@ -1,3 +1,4 @@
+
 #include <ctype.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -96,7 +97,7 @@ void lexer(Lexer *l) {
     // Collect Char literal
     if (c == '\'') {
       char *str = get_string(l, '\'');
-      add_token(l, CHARACTER, str, 0, position(l->ln, l->t_cn));
+      add_token(l, INT, str, (size_t)str[0], position(l->ln, l->t_cn));
       continue;
     }
 
@@ -260,15 +261,10 @@ char *get_string(Lexer *l, char q) {
     consume(l);
   }
 
+  char *string = substr(l, l->buffer, start, l->i);
   consume(l); // Consume closing " / '
 
-  char *string = substr(l, l->buffer, start, l->i - 1);
-
   size_t strlen = l->i - start;
-  if (q == '\'' && strlen >= 1) {
-    fprintf(stderr, "%s:%zu:%zu: Character constant too long.\n", l->file, l->ln, l->t_cn);
-  }
-
   size_t r = 0, w = 0;
   while (r < strlen) {
     if (string[r] == '*') {
@@ -292,6 +288,11 @@ char *get_string(Lexer *l, char q) {
     }
     r++;
   }
+
+  if (q == '\'' && w - 1 > 1) {
+    fprintf(stderr, "%s:%zu:%zu: Character constant too long.\n", l->file, l->ln, l->t_cn);
+  }
+
   string[w] = '\0';
   return string;
 }
@@ -350,7 +351,6 @@ char *token_kind_to_str(TokenKind kind) {
   case IDENTIFIER: return "IDENTIFIER";
   case INT: return "INT";
   case STRING: return "STRING";
-  case CHARACTER: return "CHARACTER";
   case LABLE: return "LABLE";
   case EXTRN: return "EXTRN";
   case AUTO: return "AUTO";

@@ -15,7 +15,6 @@ typedef enum {
   IDENTIFIER,
   INT,
   STRING,
-  CHARACTER,
   LABLE,
 
   // Keywords

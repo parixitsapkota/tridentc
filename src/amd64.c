@@ -255,7 +255,24 @@ void dump_x86_64_nasm(Ir *ir, FILE *f) {
           "  call main\n"
           "  mov rdi, rax\n"
           "  mov rax, 0x3C\n"
-          "  syscall\n\n");
+          "  syscall\n"
+          "\n"
+          "putchar:\n"
+          "  push rbp\n"
+          "  mov rbp, rsp\n"
+          "  mov [rbp - 8], rdi\n"
+          "  push rdi\n"
+          "  mov rax, 1\n"
+          "  mov rdi, 1\n"
+          "  mov rsi, rsp\n"
+          "  mov rdx, 1\n"
+          "  syscall\n"
+          "  pop rdi\n"
+          "  leave\n"
+          "  ret\n"
+          "\n"
+
+  );
 
   fprintf(f, "section .note.GNU-stack noalloc noexec nowrite progbits\n");
 }

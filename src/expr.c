@@ -11,7 +11,6 @@ bool is_kind_literal(TokenKind kind) {
   switch (kind) {
   case INT:
   case STRING:
-  case CHARACTER:
   case IDENTIFIER: return true;
   default: return false;
   }
