@@ -1,7 +1,12 @@
+global _start, exit, putchar
+extern main
+
 ;; _start : [BRT](b runtime)
-global _start
 _start:
   call main
+  call exit
+
+exit:
   mov rdi, rax
   mov rax, 0x3C
   syscall

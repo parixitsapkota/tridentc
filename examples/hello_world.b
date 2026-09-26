@@ -1,9 +1,5 @@
-char(str, i) {
-    return *(str + i);
-}
-
 puts(str) {
-  extrn putchar;
+  extrn putchar, char;
   auto i;
   i = 0;
   while (char(str, i)) {

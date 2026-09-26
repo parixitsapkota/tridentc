@@ -169,6 +169,7 @@ static void asm_call(FILE *f, const IrNode *n) {
 }
 
 static void asm_function(FILE *f, const IrNode *fn) {
+  putc('\n', f);
   size_t max_t = fn->params, n_alloc = 0;
   for (const IrNode *t = fn->nodes; t; t = t->next) {
     if (t->kind != IR_OPERATION && t->kind != IR_CALL) {
@@ -252,33 +253,10 @@ void dump_x86_64_nasm(Ir *ir, FILE *f) {
   for (const IrNode *curr = ir->ir_head; curr; curr = curr->next) {
     if (curr->kind == IR_FUNCTION) {
       asm_function(f, curr);
+    } else if (curr->kind == IR_EXTRN) {
+      fprintf(f, "extern %s\n", curr->name);
     }
   }
-  fprintf(f,
-          // _start [BRT](b runtime)
-          "global _start\n"
-          "_start:\n"
-          "  call main\n"
-          "  mov rdi, rax\n"
-          "  mov rax, 0x3C\n"
-          "  syscall\n"
-          "\n"
-          "putchar:\n"
-          "  push rbp\n"
-          "  mov rbp, rsp\n"
-          "  mov [rbp - 8], rdi\n"
-          "  push rdi\n"
-          "  mov rax, 1\n"
-          "  mov rdi, 1\n"
-          "  mov rsi, rsp\n"
-          "  mov rdx, 1\n"
-          "  syscall\n"
-          "  pop rdi\n"
-          "  leave\n"
-          "  ret\n"
-          "\n"
-
-  );
 
   fprintf(f, "section .rodata\n\n");
 
