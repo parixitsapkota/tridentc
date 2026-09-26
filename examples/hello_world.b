@@ -1,8 +1,14 @@
+char(str, i) {
+    return *(str + i);
+}
+
 puts(str) {
   extrn putchar;
-  while (str) {
-    putchar(str);
-    ++str;
+  auto i;
+  i = 0;
+  while (char(str, i)) {
+    putchar(char(str, i));
+    ++i;
   }
 }
 
