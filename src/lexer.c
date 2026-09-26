@@ -11,7 +11,7 @@
 // Lexer helper funcions
 char peak(const Lexer *l, int offset);
 void consume(Lexer *l);
-void add_token(Lexer *l, TokenKind kind, const char *lexeme, Position position);
+void add_token(Lexer *l, TokenKind kind, const char *lexeme, size_t int_lit, Position position);
 Position position(size_t ln, size_t cn);
 // P_Print helper function
 char *token_kind_to_str(TokenKind kind);
@@ -67,9 +67,9 @@ void lexer(Lexer *l) {
 
       const struct Keyword *k = get_keyword_kind(word, word_len);
       if (k != NULL) {
-        add_token(l, k->token_kind, NULL, position(l->ln, l->t_cn));
+        add_token(l, k->token_kind, word, 0, position(l->ln, l->t_cn));
       } else {
-        add_token(l, IDENTIFIER, word, position(l->ln, l->t_cn));
+        add_token(l, IDENTIFIER, word, 0, position(l->ln, l->t_cn));
       }
       continue;
     }
@@ -77,21 +77,26 @@ void lexer(Lexer *l) {
     // Handle digits.
     if (isdigit((unsigned char)c)) {
       char *num = get_digit(l);
-      add_token(l, INT, num, position(l->ln, l->t_cn));
+      char *endptr;
+      unsigned long long int_lit = strtoull(num, &endptr, 0);
+      if ((num[0] == '0') && (num[1] == 'b' || num[1] == 'B')) {
+        int_lit = strtoull(num + 2, &endptr, 2);
+      }
+      add_token(l, INT, num, (size_t)int_lit, position(l->ln, l->t_cn));
       continue;
     }
 
     // Collect Str literal
     if (c == '"') {
       char *str = get_string(l, '"');
-      add_token(l, STRING, str, position(l->ln, l->t_cn));
+      add_token(l, STRING, str, 0, position(l->ln, l->t_cn));
       continue;
     }
 
     // Collect Char literal
     if (c == '\'') {
       char *str = get_string(l, '\'');
-      add_token(l, CHARACTER, str, position(l->ln, l->t_cn));
+      add_token(l, CHARACTER, str, 0, position(l->ln, l->t_cn));
       continue;
     }
 
@@ -179,11 +184,11 @@ void lexer(Lexer *l) {
       }
 
       if (kind == UNKNOWN) {
-        add_token(l, UNKNOWN, NULL, position(l->ln, l->t_cn));
+        add_token(l, UNKNOWN, NULL, 0, position(l->ln, l->t_cn));
         consume(l);
         continue;
       }
-      add_token(l, kind, NULL, position(l->ln, l->t_cn));
+      add_token(l, kind, NULL, 0, position(l->ln, l->t_cn));
       consume(l);
       continue;
     }
@@ -204,9 +209,10 @@ void consume(Lexer *l) {
   ++l->cn;
 }
 
-void add_token(Lexer *l, TokenKind kind, const char *lexeme, Position position) {
+void add_token(Lexer *l, TokenKind kind, const char *lexeme, size_t int_lit, Position position) {
   Token *new_token = arena_alloc(l->tokens, sizeof(Token));
-  *new_token = (Token){.kind = kind, .lexeme = lexeme, .position = position, .next = NULL};
+  *new_token = (Token){
+      .kind = kind, .lexeme = lexeme, .int_lit = int_lit, .position = position, .next = NULL};
   new_token->next = NULL;
   l->t_token->next = new_token;
   l->t_token = new_token;
@@ -290,8 +296,47 @@ char *get_string(Lexer *l, char q) {
   return string;
 }
 
+bool isoctal(char c) {
+  if ((c >= 0x30 && c <= 0x37)) {
+    return true;
+  }
+  return false;
+}
+
 char *get_digit(Lexer *l) {
   const size_t start = l->i;
+
+  if (peak(l, 0) == '0') {
+    char next = peak(l, 1);
+    consume(l);
+
+    if (next == 'x' || next == 'X') {
+      consume(l);
+      while (isxdigit(peak(l, 0))) {
+        consume(l);
+      }
+      return substr(l, l->buffer, start, l->i);
+    }
+
+    if (next == 'b' || next == 'B') {
+      consume(l);
+      while (peak(l, 0) == '0' || peak(l, 0) == '1') {
+        consume(l);
+      }
+      return substr(l, l->buffer, start, l->i);
+    }
+
+    while (isdigit(peak(l, 0))) {
+      char c = peak(l, 0);
+      if (!isoctal(c)) {
+        fprintf(stderr, "%s:%zu:%zu: Invalid digit '%c' in octal constant.\n", l->file, l->ln,
+                l->t_cn, c);
+      }
+      consume(l);
+    }
+    return substr(l, l->buffer, start, l->i);
+  }
+
   while (isdigit(peak(l, 0))) {
     consume(l);
   }

@@ -1,4 +1,5 @@
 #include "dep/shi_arena.h"
+#include <stddef.h>
 
 #include "ast.h"
 
@@ -8,9 +9,9 @@ VarInfo *var_info(Arena *arena, VarKind kind, size_t offset) {
   return var;
 }
 
-AstAtom *new_ast_atom(Arena *arena, TokenKind kind, const char *value) {
+AstAtom *new_ast_atom(Arena *arena, TokenKind kind, const char *value, size_t int_lit) {
   AstAtom *atom = arena_alloc(arena, sizeof(AstAtom));
-  *atom = (AstAtom){.kind = kind, .value = value};
+  *atom = (AstAtom){.kind = kind, .value = value, .int_lit = int_lit};
   return atom;
 }
 

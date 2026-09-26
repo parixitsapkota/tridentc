@@ -77,6 +77,7 @@ typedef struct Token {
   // Value
   TokenKind kind;
   const char *lexeme;
+  size_t int_lit;
   // Position
   Position position;
   // Next Token

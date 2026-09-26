@@ -73,7 +73,7 @@ Precedence get_op_prec(TokenKind kind) {
 
 AstAtom *parse_atom_f(Parser *p) {
   Token *tok = pconsume(p);
-  return new_ast_atom(p->ast, tok->kind, tok->lexeme);
+  return new_ast_atom(p->ast, tok->kind, tok->lexeme, tok->int_lit);
 }
 
 AstFunctionCall *parse_function_call_s(Parser *p) {

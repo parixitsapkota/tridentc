@@ -273,7 +273,7 @@ size_t ir_expr_f(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
   switch (node->kind) {
   case AST_ATOM: {
     switch (node->atom_n->kind) {
-    case INT: return emit_const(ir, block_tail, strtoll(node->atom_n->value, NULL, 10));
+    case INT: return emit_const(ir, block_tail, node->atom_n->int_lit);
 
     case IDENTIFIER: {
       const char *name = node->atom_n->value;
