@@ -31,6 +31,7 @@ Lexer *init_lexer(const char *file, const char *buffer, size_t buf_len) {
   l->i = 0;
   l->ln = 1;
   l->cn = 1;
+  l->srt_data_c = 0;
   l->tokens = init_arena(sizeof(Token) * TOKENS_STORE);
   l->str_arena = init_arena(sizeof(char) * (buf_len * 0.75));
   // Temp vars.
@@ -90,7 +91,7 @@ void lexer(Lexer *l) {
     // Collect Str literal
     if (c == '"') {
       char *str = get_string(l, '"');
-      add_token(l, STRING, str, 0, position(l->ln, l->t_cn));
+      add_token(l, STRING, str, ++(l->srt_data_c), position(l->ln, l->t_cn));
       continue;
     }
 
@@ -271,6 +272,7 @@ char *get_string(Lexer *l, char q) {
       r++;
       switch (string[r]) {
       case '0': string[w++] = '\0'; break;
+      case 'e': string[w++] = 0x04; break;
       case '(': string[w++] = '{'; break;
       case ')': string[w++] = '}'; break;
       case 't': string[w++] = '\t'; break;
