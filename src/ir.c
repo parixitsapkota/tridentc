@@ -558,6 +558,9 @@ void gen_ir(Ir *ir) {
     } else if (curr->kind == AST_GLOBAL) {
       ir->t_node = curr;
       add_ir_node(&ir->ir_tail, new_ir_named(ir->ir_arena, IR_GLOBAL, curr->global_n->name, 0));
+    } else if (curr->kind == AST_EXTRN) {
+      ir->t_node = curr;
+      ir_extrn_s(ir, curr);
     }
     curr = curr->next;
   }

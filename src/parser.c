@@ -311,6 +311,8 @@ void parser(Parser *p) {
       } else {
         parse_global_s(p, name);
       }
+    } else if (p->tok->kind == EXTRN) {
+      parse_extrn_s(p, &p->t_node);
     } else {
       fprintf(stderr, "%s:%zu:%zu: Unexpected token `%s`.\n", p->l->file, p->tok->position.ln,
               p->tok->position.cn, token_kind_to_str(p->tok->kind));
