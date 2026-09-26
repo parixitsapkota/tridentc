@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "ast.h"
 #include "ir.h"
@@ -80,6 +81,7 @@ const char *irop_to_str(irop_t op) {
   case OP_STORE: return "store";
 
   case OP_CONST: return "const";
+  case OP_DATA: return "data";
   case OP_GLOBAL_L: return "load";
   case OP_GLOBAL_S: return "store";
   case OP_GLOBAL_ADDR: return "gaddr";
@@ -126,9 +128,9 @@ size_t emmit_call(Ir *ir, IrNode **tail, const char *name, size_t *args, size_t 
   return t;
 }
 
-size_t emit_const(Ir *ir, IrNode **tail, size_t value) {
+size_t emit_const(Ir *ir, irop_t kind, IrNode **tail, size_t value) {
   size_t t = ++ir->temp_c;
-  IrNode *n = new_ir_op(ir->ir_arena, t, OP_CONST, 0, 0);
+  IrNode *n = new_ir_op(ir->ir_arena, t, kind, 0, 0);
   n->imm = value;
   add_ir_node(tail, n);
   return t;
@@ -273,7 +275,7 @@ size_t ir_expr_f(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
   switch (node->kind) {
   case AST_ATOM: {
     switch (node->atom_n->kind) {
-    case INT: return emit_const(ir, block_tail, strtoll(node->atom_n->value, NULL, 10));
+    case INT: return emit_const(ir, OP_CONST, block_tail, node->atom_n->int_lit);
 
     case IDENTIFIER: {
       const char *name = node->atom_n->value;
@@ -287,6 +289,10 @@ size_t ir_expr_f(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
         return load_global(ir, block_tail, name);
       }
       ir_fatal("Undefined variable '%s'", name);
+    }
+
+    case STRING: {
+      return emit_const(ir, OP_DATA, block_tail, node->atom_n->int_lit);
     }
 
     default:
@@ -317,7 +323,7 @@ size_t ir_expr_f(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
 
     case NOT: {
       size_t v = ir_expr_f(ir, operand, scope, block_tail);
-      size_t zero = emit_const(ir, block_tail, 0);
+      size_t zero = emit_const(ir, OP_CONST, block_tail, 0);
       return emit_op(ir, block_tail, OP_EQ, v, zero);
     }
 
@@ -325,7 +331,7 @@ size_t ir_expr_f(Ir *ir, AstNode *node, AstScope *scope, IrNode **block_tail) {
     case DEC: {
       LValue lv = ir_lvalue(ir, operand, scope, block_tail);
       size_t old = ir_load_lvalue(ir, block_tail, lv);
-      size_t one = emit_const(ir, block_tail, 1);
+      size_t one = emit_const(ir, OP_CONST, block_tail, 1);
       size_t nv = emit_op(ir, block_tail, op == INC ? OP_ADD : OP_SUB, old, one);
       ir_store_lvalue(ir, block_tail, nv, lv);
       return nv;
@@ -526,7 +532,7 @@ IrNode *ir_function_s(Ir *ir, AstNode *func) {
   ir_scope(ir, body_scope, &block_tail);
 
   if (block_tail->kind != IR_RETURN) {
-    size_t zero = emit_const(ir, &block_tail, 0);
+    size_t zero = emit_const(ir, OP_CONST, &block_tail, 0);
     add_ir_node(&block_tail, new_ir_named(ir->ir_arena, IR_RETURN, NULL, zero));
   }
 
@@ -561,6 +567,7 @@ void dump_op(FILE *f, const IrNode *n) {
   const char *op = irop_to_str(n->op);
   switch (n->op) {
   case OP_CONST: fprintf(f, "  %%t%zu = &%s %zu\n", n->temp_dest, op, n->imm); break;
+  case OP_DATA: fprintf(f, "  %%t%zu = &%s %%ro_%zu\n", n->temp_dest, op, n->imm); break;
   case OP_GLOBAL_L:
   case OP_GLOBAL_ADDR: fprintf(f, "  %%t%zu = &%s %s\n", n->temp_dest, op, n->name); break;
   case OP_GLOBAL_S: fprintf(f, "  &%s %s, %%t%zu\n", op, n->name, n->temp_2); break;
@@ -597,7 +604,6 @@ void dump_ir(Ir *ir, FILE *f) {
         switch (t->kind) {
         case IR_LABEL: fprintf(f, "@L%zu:\n", t->lable_id); break;
         case IR_OPERATION: dump_op(f, t); break;
-        case IR_EXTRN: fprintf(f, "  extrn %s\n", t->name); break;
         case IR_JUMP: fprintf(f, "  jmp .L%zu\n", t->lable_id); break;
         case IR_BRANCH:
           fprintf(f, "  br %%t%zu, .L%zu, .L%zu\n", t->temp_dest, t->lable_id, t->lable_id_f);
@@ -620,14 +626,29 @@ void dump_ir(Ir *ir, FILE *f) {
           }
           break;
         case IR_MODULE:
+        case IR_EXTRN:
         case IR_GLOBAL:
         case IR_FUNCTION: break;
         }
       }
-      fprintf(f, "}\n");
+      fprintf(f, "}\n\n");
       break;
     }
     default: break;
+    }
+  }
+
+  for (Token *tok = ir->p->l->tok_head->next; tok != NULL; tok = tok->next) {
+    if (tok->kind == STRING) {
+      fprintf(f, "data ro_%zu {", tok->int_lit);
+      size_t len = strlen(tok->lexeme);
+      for (size_t i = 0; i <= len; ++i) {
+        fprintf(f, "0x%02x", (unsigned char)tok->lexeme[i]);
+        if (i < len) {
+          fprintf(f, ", ");
+        }
+      }
+      fprintf(f, "}\n");
     }
   }
 }

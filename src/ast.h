@@ -13,6 +13,7 @@ typedef struct AstNode AstNode;
 typedef struct {
   TokenKind kind;
   const char *value;
+  size_t int_lit;
 } AstAtom;
 
 typedef struct {
@@ -120,7 +121,7 @@ typedef struct {
 
 VarInfo *var_info(Arena *arena, VarKind kind, size_t offset);
 
-AstAtom *new_ast_atom(Arena *arena, TokenKind kind, const char *value);
+AstAtom *new_ast_atom(Arena *arena, TokenKind kind, const char *value, size_t int_lit);
 AstUnary *new_ast_unary(Arena *arena, AstNode *node, TokenKind op);
 AstBinary *new_ast_binary(Arena *arena, AstNode *left, TokenKind op, AstNode *right);
 AstScope *new_ast_scope(Arena *arena, Hs *symtab, AstScope *parent, AstNode *body);
